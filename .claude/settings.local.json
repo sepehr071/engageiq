@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__web-search-prime__webSearchPrime",
+      "mcp__web-reader__webReader",
+      "mcp__livekit-docs__code_search",
+      "mcp__livekit-docs__docs_search",
+      "mcp__livekit-docs__get_pages"
+    ]
+  },
+  "prefersReducedMotion": true
+}

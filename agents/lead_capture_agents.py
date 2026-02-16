@@ -1,0 +1,167 @@
+"""
+Lead capture agent — collects contact info, saves lead, sends notification, closes conversation.
+This is the only sub-agent. Everything after qualification handoff happens here.
+
+Merged responsibilities: LeadCapture + Notification + Close (previously 3 separate agents).
+"""
+
+import json
+import logging
+from livekit.agents import function_tool
+from agents.base import BaseAgent
+from core.session_state import UserData, RunContext_T
+from core.lead_storage import save_lead
+from utils.smtp import is_valid_email_syntax, send_lead_notification
+from utils.history import save_conversation_to_file
+from utils.webhook import send_session_webhook
+
+logger = logging.getLogger(__name__)
+
+
+class LeadCaptureAgent(BaseAgent):
+    """Collects visitor contact information, sends notifications, and closes the conversation."""
+
+    async def on_enter(self):
+        """Speak immediately on entry — visitor already agreed, go straight to collecting."""
+        logger.info("LeadCaptureAgent on_enter")
+        await self.session.generate_reply(
+            instructions="The visitor already agreed to share their contact details. Thank them briefly and ask for their name and email to get started. Be warm and concise — one sentence."
+        )
+
+    @function_tool
+    async def collect_lead_info(
+        self,
+        context: RunContext_T,
+        name: str,
+        email: str,
+        company: str = "",
+        role: str = "",
+        phone: str = "",
+    ):
+        """
+        Call this when the visitor provides their contact information.
+        name (required): The visitor's name.
+        email (required): The visitor's email address.
+        company: The visitor's company name.
+        role: The visitor's job title or role.
+        phone: The visitor's phone number (optional).
+        """
+        logger.info(f"Lead info: name={name}, email={email}, company={company}")
+
+        # Validate email
+        if not is_valid_email_syntax(email):
+            logger.info(f"Invalid email: {email}")
+            return "That email doesn't seem right. Ask the visitor to double-check it."
+
+        # Store contact info
+        self.userdata.name = name.strip()
+        self.userdata.email = email.lower().strip()
+        self.userdata.company = company.strip() if company else None
+        self.userdata.role_title = role.strip() if role else None
+        self.userdata.phone = phone.strip() if phone else None
+        self.userdata.lead_captured = True
+
+        # Save lead as JSON
+        try:
+            filepath = save_lead(self.userdata)
+            logger.info(f"Lead saved to {filepath}")
+        except Exception as e:
+            logger.error(f"Failed to save lead JSON: {e}")
+
+        # Send email notification
+        try:
+            success = send_lead_notification(
+                name=self.userdata.name or "",
+                company=self.userdata.company or "",
+                role_title=self.userdata.role_title or "",
+                email=self.userdata.email or "",
+                phone=self.userdata.phone or "",
+                intent_score=self.userdata.intent_score,
+                biggest_challenge=self.userdata.biggest_challenge or "",
+                campaign_source=self.userdata.campaign_source or "",
+                conversation_summary=self.userdata.conversation_summary or "",
+            )
+            if success:
+                logger.info("Lead email sent successfully")
+            else:
+                logger.error("Lead email send failed")
+        except Exception as e:
+            logger.error(f"Lead email crashed: {e}")
+
+        # Send webhook with captured lead data
+        try:
+            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+            session_id = self.userdata.session_id or "unknown"
+            await send_session_webhook(session_id, chat_history, self.userdata)
+            logger.info("Lead webhook sent successfully")
+        except Exception as e:
+            logger.error(f"Lead webhook failed: {e}")
+
+        # Send "new conversation" button to frontend
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps({"type": "new_conversation", "label": "New Conversation"}),
+                topic="trigger",
+            )
+        except Exception as e:
+            logger.error(f"New conversation button failed: {e}")
+
+        # Return confirmation — LLM will generate a natural goodbye
+        return "Contact details received and saved. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop."
+
+    @function_tool
+    async def visitor_declines_contact(self, context: RunContext_T):
+        """
+        Call this when the visitor declines to share their contact information.
+        """
+        logger.info("Visitor declined contact info")
+
+        # Send "new conversation" button
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps({"type": "new_conversation", "label": "New Conversation"}),
+                topic="trigger",
+            )
+        except Exception as e:
+            logger.error(f"New conversation button failed: {e}")
+
+        # Return farewell — LLM will generate a natural goodbye
+        return "No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later."
+
+    @function_tool
+    async def start_new_conversation(self, context: RunContext_T):
+        """
+        Call this when the visitor wants to start a new conversation.
+        """
+        logger.info("Starting new conversation")
+
+        # Clean frontend
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps({"clean": True}), topic="clean"
+            )
+        except Exception as e:
+            logger.error(f"Clean message failed: {e}")
+
+        # Save conversation history and send webhook
+        try:
+            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+            save_conversation_to_file(chat_history, self.userdata)
+
+            # Send webhook
+            session_id = self.userdata.session_id or "unknown"
+            await send_session_webhook(session_id, chat_history, self.userdata)
+
+            self.userdata._history_saved = True
+            logger.info("Conversation saved and webhook sent before restart")
+        except Exception as e:
+            logger.error(f"Failed to save conversation: {e}")
+
+        # Restart with fresh UserData (keep language)
+        from agents.main_agent import EngageIQAssistant
+        lang = self.userdata.language
+        return EngageIQAssistant(
+            room=self.room,
+            userdata=UserData(language=lang),
+            first_message=True,
+        )
