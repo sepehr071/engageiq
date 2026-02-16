@@ -2,7 +2,7 @@
 Language switching utility for mid-conversation language changes.
 
 Receives language updates from frontend via LiveKit data channel (topic: "language").
-Dynamically updates the active agent's instructions to speak the new language.
+Dynamically updates the active agent's instructions with a strong language directive.
 
 Usage:
     from utils.language_switcher import LanguageSwitchHandler
@@ -23,27 +23,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Confirmation phrases for language switch (brief, natural)
-_LANGUAGE_CONFIRMATIONS = {
-    "de": "Selbstverstaendlich, ich spreche jetzt Deutsch.",
-    "en": "Of course, I'll speak English now.",
-    "fr": "Bien sur, je parle francais maintenant.",
-    "es": "Por supuesto, ahora hablo espanol.",
-    "it": "Certo, ora parlo italiano.",
-    "tr": "Elbette, simdi Turkce konusuyorum.",
-    "ar": "Tabaan, al-ana atakallam bi-l-arabiyya.",
-    "zh": "Hao de, xianzai wo shuo zhongwen.",
-    "ja": "Hai, nihongo de hanashimasu.",
-    "pt": "Claro, agora falo portugues.",
-}
-
-
 class LanguageSwitchHandler:
     """Handles mid-conversation language switching for voice agents.
 
     Listens for data packets on the "language" topic from the frontend,
-    updates the agent's instructions dynamically, and optionally generates
-    a confirmation reply in the new language.
+    prepends a strong language directive to the agent's instructions,
+    and updates the realtime session silently (no agent response).
     """
 
     def __init__(self, session: "AgentSession", room: "rtc.Room"):
@@ -91,7 +76,7 @@ class LanguageSwitchHandler:
                 logger.error(f"Error processing language change: {e}")
 
     async def _handle_language_change(self, new_language: str) -> None:
-        """Execute the language switch.
+        """Execute the language switch silently.
 
         Args:
             new_language: The new language code (e.g., "de", "en")
@@ -105,7 +90,7 @@ class LanguageSwitchHandler:
 
         logger.info(f"Language switch requested: {old_language} -> {new_language}")
 
-        # Update userdata
+        # Update userdata (persists across handoffs)
         userdata.language = new_language
 
         # Get current agent
@@ -114,62 +99,51 @@ class LanguageSwitchHandler:
             logger.warning("No current agent to update instructions")
             return
 
-        # Build new instructions based on agent type
-        new_instructions = self._build_instructions_for_agent(current_agent, new_language)
+        # Get current instructions
+        current_instructions = current_agent.instructions
 
-        if not new_instructions:
-            logger.warning(f"Could not build instructions for agent type: {type(current_agent).__name__}")
-            return
+        # Build strong language override directive
+        language_override = self._build_language_override(new_language)
+
+        # Prepend language override to existing instructions
+        # The override at the TOP ensures the LLM sees it first and prioritizes it
+        new_instructions = language_override + "\n\n" + current_instructions
 
         try:
             # Update the agent's instructions (this also updates the realtime session)
             await current_agent.update_instructions(new_instructions)
-            logger.info(f"Updated instructions for {current_agent.__class__.__name__} to language: {new_language}")
-
-            # Generate a brief confirmation in the new language
-            confirmation = self._get_switch_confirmation(new_language)
-            await self._session.generate_reply(instructions=confirmation)
-            logger.info(f"Language switch complete: {old_language} -> {new_language}")
+            logger.info(f"Language switched: {old_language} -> {new_language} (no agent response)")
 
         except Exception as e:
             logger.error(f"Failed to update agent instructions: {e}")
 
-    def _build_instructions_for_agent(self, agent, language: str) -> str | None:
-        """Build language-appropriate instructions for the given agent.
+    def _build_language_override(self, language: str) -> str:
+        """Build a strong language directive to prepend to instructions.
 
-        Args:
-            agent: The current agent instance
-            language: The target language code
-
-        Returns:
-            The new instructions string, or None if agent type is unknown
-        """
-        from prompt.main_agent import build_main_prompt
-        from prompt.workflow import build_lead_capture_prompt
-        from agents.main_agent import EngageIQAssistant
-        from agents.lead_capture_agents import LeadCaptureAgent
-
-        if isinstance(agent, EngageIQAssistant):
-            # Rebuild main agent prompt with product data
-            product_data = getattr(agent, "_product_data", {})
-            return build_main_prompt(language, product_data)
-
-        elif isinstance(agent, LeadCaptureAgent):
-            # Rebuild lead capture prompt
-            return build_lead_capture_prompt(language)
-
-        else:
-            logger.warning(f"Unknown agent type: {type(agent).__name__}")
-            return None
-
-    def _get_switch_confirmation(self, language: str) -> str:
-        """Generate a brief confirmation message in the new language.
+        This creates a highly emphasized instruction that overrides all previous
+        language settings and forces the LLM to respond in the specified language.
 
         Args:
             language: The target language code
 
         Returns:
-            A brief confirmation instruction for generate_reply
+            A strong language directive string
         """
-        confirmation = _LANGUAGE_CONFIRMATIONS.get(language, _LANGUAGE_CONFIRMATIONS["en"])
-        return f"Say exactly this phrase and nothing else: \"{confirmation}\""
+        from config.languages import LANGUAGES, DEFAULT_LANGUAGE
+
+        lang_config = LANGUAGES.get(language, LANGUAGES.get(DEFAULT_LANGUAGE, {}))
+        english_name = lang_config.get("english_name", "English")
+        native_name = lang_config.get("name", "English")
+        formality_note = lang_config.get("formality_note", "Use professional tone")
+
+        return f"""## CRITICAL LANGUAGE INSTRUCTION - HIGHEST PRIORITY
+
+YOU MUST RESPOND IN {english_name.upper()} ({native_name}) FROM NOW ON.
+
+This instruction OVERRIDES all previous language instructions.
+- Speak ONLY in natural, fluent {english_name}
+- {formality_note}
+- Every word you speak must be in {english_name}
+- Continue the conversation naturally in {english_name}
+
+IMPORTANT: Even if the conversation was in another language, you MUST respond in {english_name} from this moment forward. Do not acknowledge the language change - just continue speaking in {english_name}."""
