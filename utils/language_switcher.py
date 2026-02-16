@@ -27,8 +27,11 @@ class LanguageSwitchHandler:
     """Handles mid-conversation language switching for voice agents.
 
     Listens for data packets on the "language" topic from the frontend,
-    prepends a strong language directive to the agent's instructions,
+    prepends a strong language directive to the agent's ORIGINAL instructions,
     and updates the realtime session silently (no agent response).
+
+    Important: Stores the original instructions on first switch to prevent
+    accumulating multiple language directives on subsequent switches.
     """
 
     def __init__(self, session: "AgentSession", room: "rtc.Room"):
@@ -40,6 +43,7 @@ class LanguageSwitchHandler:
         """
         self._session = session
         self._room = room
+        self._original_instructions: str | None = None  # Stores original, unmodified instructions
 
     def setup_listener(self) -> None:
         """Register the data_received listener for language changes."""
@@ -78,6 +82,10 @@ class LanguageSwitchHandler:
     async def _handle_language_change(self, new_language: str) -> None:
         """Execute the language switch silently.
 
+        Stores the original instructions on first switch, then always prepends
+        the new language directive to the ORIGINAL instructions (not the modified ones).
+        This prevents accumulating multiple conflicting language directives.
+
         Args:
             new_language: The new language code (e.g., "de", "en")
         """
@@ -99,17 +107,20 @@ class LanguageSwitchHandler:
             logger.warning("No current agent to update instructions")
             return
 
-        # Get current instructions
-        current_instructions = current_agent.instructions
-
-        # Build strong language override directive
-        language_override = self._build_language_override(new_language)
-
-        # Prepend language override to existing instructions
-        # The override at the TOP ensures the LLM sees it first and prioritizes it
-        new_instructions = language_override + "\n\n" + current_instructions
-
         try:
+            # Store original instructions on FIRST switch only
+            # This prevents accumulating multiple language directives
+            if self._original_instructions is None:
+                self._original_instructions = current_agent.instructions
+                logger.info("Stored original instructions for language switching")
+
+            # Build strong language override directive
+            language_override = self._build_language_override(new_language)
+
+            # Always prepend to ORIGINAL instructions (not current modified ones)
+            # This ensures only ONE language directive is present at a time
+            new_instructions = language_override + "\n\n" + self._original_instructions
+
             # Update the agent's instructions (this also updates the realtime session)
             await current_agent.update_instructions(new_instructions)
             logger.info(f"Language switched: {old_language} -> {new_language} (no agent response)")
