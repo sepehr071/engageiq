@@ -213,7 +213,7 @@ LANGUAGE_DETECTION_HINTS = {
 # DEFAULT LANGUAGE — fallback when detection is uncertain
 # =============================================================================
 
-DEFAULT_LANGUAGE = "en"  # English is the default language
+DEFAULT_LANGUAGE = "de"  # German is the default language
 
 # =============================================================================
 # SUPPORTED LANGUAGE CODES — for validation

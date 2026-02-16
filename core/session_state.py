@@ -9,12 +9,13 @@ from dataclasses import dataclass, field
 from typing import Optional, List
 from datetime import datetime
 from livekit.agents import RunContext
+from config.languages import DEFAULT_LANGUAGE
 
 
 @dataclass
 class UserData:
-    # Language (from participant attributes)
-    language: str = "en"
+    # Language (from participant attributes, defaults to German)
+    language: str = DEFAULT_LANGUAGE
 
     # Session tracking (for webhook)
     session_id: Optional[str] = None

@@ -215,11 +215,24 @@ class EngageIQAssistant(Agent):
         logger.info(f"Checking intent score: {score}/5")
 
         if score >= 3:
-            # Good intent - offer lead capture
-            return "QUALIFIED: The visitor is engaged. Offer to collect their contact details for follow-up. If they agree, call connect_to_lead_capture with confirm=true. If they decline, call connect_to_lead_capture with confirm=false."
+            # Good signal - have more conversation before asking for contact
+            return """GOOD_SIGNAL: The visitor seems interested. Before asking for contact:
+
+1. Acknowledge their challenge briefly with empathy
+2. Share 1-2 specific ways EngageIQ can help their business engage customers better (e.g., "For someone in your role, this means you could see which visitors are actually interested, not just who clicks")
+3. Then naturally ask if they'd like to receive more information by email
+
+Only ask for contact details AFTER explaining the value. If they agree, call connect_to_lead_capture with confirm=true. If they decline, call connect_to_lead_capture with confirm=false."""
         else:
-            # Low intent - try to re-engage
-            return f"RE-ENGAGE: Visitor engagement is low (score {score}/5). Try ONE more approach to spark interest: ask what would make this relevant for them, or share a specific example of how EngageIQ helped a client like CORE or DFKI. If they become more engaged, offer to collect contact details. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false."
+            # Continue conversation - don't rush
+            return f"""CONTINUE_CONVERSATION: Score is {score}/5. Don't rush to ask for contact.
+
+Try to learn more about their situation:
+- Ask what would make visitor engagement valuable for their business
+- Share a brief example of how EngageIQ helped a similar company
+- Keep the conversation natural, not salesy
+
+If they show more interest, explain how EngageIQ helps engage customers and offer to send info. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false."""
 
     # ══════════════════════════════════════════════════════════════════════════
     # HANDOFF TO LEAD CAPTURE
