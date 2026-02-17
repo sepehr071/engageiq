@@ -115,10 +115,16 @@ def save_conversation_to_file(chat_messages, userdata) -> None:
             userdata.company, userdata.role_title,
         ])
 
+        # Also check for partial contact info
+        has_partial_contact = any([
+            userdata.partial_name, userdata.partial_email, userdata.partial_phone,
+            userdata.partial_company, userdata.partial_role_title,
+        ])
+
         if has_contact:
             lines.append("")
             lines.append("-" * 60)
-            lines.append("CONTACT INFORMATION")
+            lines.append("CONTACT INFORMATION (FINALIZED)")
             lines.append("-" * 60)
             lines.append("")
             lines.append(f"Name:    {userdata.name or _not_set}")
@@ -126,6 +132,20 @@ def save_conversation_to_file(chat_messages, userdata) -> None:
             lines.append(f"Phone:   {userdata.phone or _not_set}")
             lines.append(f"Company: {userdata.company or _not_set}")
             lines.append(f"Role:    {userdata.role_title or _not_set}")
+            consent_status = 'Yes' if userdata.consent_given else 'No' if userdata.consent_given is False else 'Not asked'
+            lines.append(f"Consent: {consent_status}")
+        elif has_partial_contact:
+            lines.append("")
+            lines.append("-" * 60)
+            lines.append("PARTIAL CONTACT INFO (NO CONSENT)")
+            lines.append("-" * 60)
+            lines.append("")
+            lines.append(f"Name:    {userdata.partial_name or _not_set}")
+            lines.append(f"Email:   {userdata.partial_email or _not_set}")
+            lines.append(f"Phone:   {userdata.partial_phone or _not_set}")
+            lines.append(f"Company: {userdata.partial_company or _not_set}")
+            lines.append(f"Role:    {userdata.partial_role_title or _not_set}")
+            lines.append(f"Status:  Session ended before consent was given")
 
         # Qualification answers
         has_qualification = any([

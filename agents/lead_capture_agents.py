@@ -39,7 +39,7 @@ class LeadCaptureAgent(BaseAgent):
         return "Summary saved. Continue with the conversation."
 
     @function_tool
-    async def collect_lead_info(
+    async def store_partial_contact_info(
         self,
         context: RunContext_T,
         name: str,
@@ -49,75 +49,130 @@ class LeadCaptureAgent(BaseAgent):
         phone: str = "",
     ):
         """
-        Call this when the visitor provides their contact information.
+        Call this when the visitor provides their contact information (BEFORE asking consent).
+        Stores info temporarily while you ask for consent.
         name (required): The visitor's name.
         email (required): The visitor's email address.
         company: The visitor's company name.
         role: The visitor's job title or role.
         phone: The visitor's phone number (optional).
         """
-        logger.info(f"Lead info: name={name}, email={email}, company={company}")
+        logger.info(f"Partial contact info: name={name}, email={email}, company={company}")
 
         # Validate email
         if not is_valid_email_syntax(email):
             logger.info(f"Invalid email: {email}")
             return "That email doesn't seem right. Ask the visitor to double-check it."
 
-        # Store contact info
-        self.userdata.name = name.strip()
-        self.userdata.email = email.lower().strip()
-        self.userdata.company = company.strip() if company else None
-        self.userdata.role_title = role.strip() if role else None
-        self.userdata.phone = phone.strip() if phone else None
-        self.userdata.lead_captured = True
+        # Store as PARTIAL contact info (not yet finalized)
+        self.userdata.partial_name = name.strip()
+        self.userdata.partial_email = email.lower().strip()
+        self.userdata.partial_company = company.strip() if company else None
+        self.userdata.partial_role_title = role.strip() if role else None
+        self.userdata.partial_phone = phone.strip() if phone else None
 
-        # Save lead as JSON
-        try:
-            filepath = save_lead(self.userdata)
-            logger.info(f"Lead saved to {filepath}")
-        except Exception as e:
-            logger.error(f"Failed to save lead JSON: {e}")
+        # Return instruction to ask for consent
+        return "Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?'"
 
-        # Send email notification
-        try:
-            success = send_lead_notification(
-                name=self.userdata.name or "",
-                company=self.userdata.company or "",
-                role_title=self.userdata.role_title or "",
-                email=self.userdata.email or "",
-                phone=self.userdata.phone or "",
-                intent_score=self.userdata.intent_score,
-                biggest_challenge=self.userdata.biggest_challenge or "",
-                campaign_source=self.userdata.campaign_source or "",
-                conversation_summary=self.userdata.conversation_summary or "",
-            )
-            if success:
-                logger.info("Lead email sent successfully")
-            else:
-                logger.error("Lead email send failed")
-        except Exception as e:
-            logger.error(f"Lead email crashed: {e}")
+    @function_tool
+    async def confirm_consent(self, context: RunContext_T, consent: bool):
+        """
+        Call this after asking for consent to use the visitor's contact information.
+        consent (required): true if visitor agrees, false if they decline.
+        """
+        logger.info(f"Consent response: {consent}")
+        self.userdata.consent_given = consent
 
-        # Send webhook with captured lead data
-        try:
-            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
-            session_id = self.userdata.session_id or "unknown"
-            await send_session_webhook(session_id, chat_history, self.userdata)
-            logger.info("Lead webhook sent successfully")
-        except Exception as e:
-            logger.error(f"Lead webhook failed: {e}")
+        if consent:
+            # Move partial data to final contact fields
+            self.userdata.name = self.userdata.partial_name
+            self.userdata.email = self.userdata.partial_email
+            self.userdata.company = self.userdata.partial_company
+            self.userdata.role_title = self.userdata.partial_role_title
+            self.userdata.phone = self.userdata.partial_phone
+            self.userdata.lead_captured = True
 
-        # Send "new conversation" button to frontend
-        try:
-            await self.room.local_participant.send_text(
-                json.dumps({"new_conversation": "New Conversation"}),
-                topic="trigger",
-            )
-        except Exception as e:
-            logger.error(f"New conversation button failed: {e}")
+            # Save lead as JSON
+            try:
+                filepath = save_lead(self.userdata)
+                logger.info(f"Lead saved to {filepath}")
+            except Exception as e:
+                logger.error(f"Failed to save lead JSON: {e}")
 
-        # Return confirmation — LLM will generate a natural goodbye
-        return "Contact details received and saved. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop."
+            # Send email notification
+            try:
+                success = send_lead_notification(
+                    name=self.userdata.name or "",
+                    company=self.userdata.company or "",
+                    role_title=self.userdata.role_title or "",
+                    email=self.userdata.email or "",
+                    phone=self.userdata.phone or "",
+                    intent_score=self.userdata.intent_score,
+                    biggest_challenge=self.userdata.biggest_challenge or "",
+                    campaign_source=self.userdata.campaign_source or "",
+                    conversation_summary=self.userdata.conversation_summary or "",
+                )
+                if success:
+                    logger.info("Lead email sent successfully")
+                else:
+                    logger.error("Lead email send failed")
+            except Exception as e:
+                logger.error(f"Lead email crashed: {e}")
+
+            # Send webhook with captured lead data
+            try:
+                chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+                session_id = self.userdata.session_id or "unknown"
+                await send_session_webhook(session_id, chat_history, self.userdata)
+                logger.info("Lead webhook sent successfully")
+            except Exception as e:
+                logger.error(f"Lead webhook failed: {e}")
+
+            # Mark history as saved to prevent duplicate on shutdown
+            self.userdata._history_saved = True
+
+            # Send "new conversation" button to frontend
+            try:
+                await self.room.local_participant.send_text(
+                    json.dumps({"new_conversation": "New Conversation"}),
+                    topic="trigger",
+                )
+            except Exception as e:
+                logger.error(f"New conversation button failed: {e}")
+
+            # Return confirmation — LLM will generate a natural goodbye
+            return "Contact details saved with consent. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop."
+
+        else:
+            # Clear partial data (visitor declined)
+            self.userdata.partial_name = None
+            self.userdata.partial_email = None
+            self.userdata.partial_company = None
+            self.userdata.partial_role_title = None
+            self.userdata.partial_phone = None
+            logger.info("Partial contact info discarded (visitor declined consent)")
+
+            # Send webhook (with partial_contact_info flag for analytics)
+            try:
+                chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+                session_id = self.userdata.session_id or "unknown"
+                await send_session_webhook(session_id, chat_history, self.userdata)
+            except Exception as e:
+                logger.error(f"Webhook failed: {e}")
+
+            # Mark history as saved
+            self.userdata._history_saved = True
+
+            # Send "new conversation" button
+            try:
+                await self.room.local_participant.send_text(
+                    json.dumps({"new_conversation": "New Conversation"}),
+                    topic="trigger",
+                )
+            except Exception as e:
+                logger.error(f"New conversation button failed: {e}")
+
+            return "Visitor declined consent. Data has been discarded. Say a warm goodbye and wish them a great rest of EuroShop."
 
     @function_tool
     async def visitor_declines_contact(self, context: RunContext_T):

@@ -102,12 +102,20 @@ async def entrypoint(ctx: agents.JobContext):
                 # Save local history
                 save_conversation_to_file(chat_history, ud)
 
-                # Send webhook
+                # Send webhook (will include partial contact info if present)
                 session_id = ud.session_id or participant.identity
                 await send_session_webhook(session_id, chat_history, ud)
 
                 ud._history_saved = True
-                logger.info("Conversation saved and webhook sent on session shutdown")
+
+                # Log if partial data was captured but session ended before consent
+                if ud.partial_name or ud.partial_email:
+                    logger.warning(
+                        f"Session ended with partial contact info (no consent): "
+                        f"name={ud.partial_name}, email={ud.partial_email}"
+                    )
+                else:
+                    logger.info("Conversation saved and webhook sent on session shutdown")
         except Exception as e:
             logger.error(f"Failed to save conversation on shutdown: {e}")
 

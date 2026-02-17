@@ -23,6 +23,11 @@ _WORKFLOW_LANG = {
         "lc_ask": "Würden Sie mir Ihre Kontaktdaten geben, damit unser Team Sie erreichen kann?",
         "lc_fields": "Name, E-Mail, Unternehmen, Ihre Funktion — und optional eine Telefonnummer.",
 
+        # Consent
+        "consent_ask": "Dürfen wir Ihre Kontaktdaten verwenden, um Sie bezüglich EngageIQ zu kontaktieren?",
+        "consent_yes": "Vielen Dank! Ich speichere Ihre Daten und unser Team wird sich bei Ihnen melden.",
+        "consent_no": "Verstanden. Ihre Daten werden nicht gespeichert. Vielen Dank für das Gespräch!",
+
         # Close
         "close_msg": "Vielen Dank für das Gespräch! Besuchen Sie uns an {booth}, um die volle Demo live zu erleben.",
     },
@@ -37,6 +42,11 @@ _WORKFLOW_LANG = {
         # Lead capture
         "lc_ask": "Would you mind sharing your contact details so our team can reach out to you?",
         "lc_fields": "Name, email, company, your role — and optionally a phone number.",
+
+        # Consent
+        "consent_ask": "May we use your contact information to reach out to you about EngageIQ?",
+        "consent_yes": "Thank you! I'll save your details and our team will be in touch.",
+        "consent_no": "Understood. Your information won't be stored. Thanks for chatting!",
 
         # Close
         "close_msg": "Great talking with you! Visit us at {booth} to see the full demo live.",
@@ -66,10 +76,10 @@ def _guardrails(language: str) -> str:
 # =============================================================================
 
 def build_lead_capture_prompt(language: str) -> str:
-    """Sub-agent prompt for collecting contact details, closing, and restarting.
+    """Sub-agent prompt for collecting contact details, getting consent, closing, and restarting.
 
     This agent handles everything after the main agent hands off:
-    consent → collect info → goodbye → restart.
+    collect info → ask consent → save or discard → goodbye → restart.
 
     Args:
         language: ISO code ("de" or "en").
@@ -84,40 +94,56 @@ def build_lead_capture_prompt(language: str) -> str:
 # Role
 You are a Digital Concierge collecting contact details from an interested trade-show visitor.
 The visitor has already been qualified, shown interest, and AGREED to share their contact details.
-Do NOT re-ask for consent — they already said yes.
+Do NOT re-ask for consent to collect — they already said yes. But you MUST get explicit consent to USE their data.
 
 # Conversation Flow
 
 Step 1 — Collect details:
-The visitor already agreed. Directly ask for: {L["lc_fields"]}
+The visitor already agreed to share. Directly ask for: {L["lc_fields"]}
 You may collect them in any order the conversation naturally flows.
 Do not demand all fields at once — let the visitor provide what they are comfortable with.
 Phone is always optional.
 
-Step 2 — Confirm:
-Once you have at least name and email, call `collect_lead_info` with all collected data.
-The system will confirm to the visitor, save the lead, and say goodbye automatically.
+Step 2 — Store partial info:
+Once you have at least name and email, call `store_partial_contact_info` with all collected data.
+This saves the info temporarily while you ask for consent.
+
+Step 3 — Ask for explicit consent:
+After storing partial info, ask: "{L["consent_ask"]}"
+Wait for their response.
+
+Step 4 — Handle consent response:
+- If YES: Call `confirm_consent` with consent=true. This will save the lead permanently and send notifications.
+- If NO: Call `confirm_consent` with consent=false. This will discard the data and say goodbye.
+- If UNDECIDED: Answer their questions, then ask again. If they still decline, call `confirm_consent` with consent=false.
 
 # Tools
 
 - save_conversation_summary:
-    * Call this BEFORE collect_lead_info or visitor_declines_contact.
+    * Call this BEFORE store_partial_contact_info.
     * summary (required): A brief 1-2 sentence summary covering:
       - What the visitor is looking for
       - Their interest level (high/medium/low)
       - Any specific needs or challenges mentioned
     * Example: "Marketing director interested in demand attribution. High interest - asked about CRM integration."
 
-- collect_lead_info:
-    * Call this once you have the visitor's contact details.
+- store_partial_contact_info:
+    * Call this once you have the visitor's contact details (BEFORE asking consent).
     * name (required): The visitor's full name.
     * email (required): The visitor's email address.
     * company (optional): The visitor's company or organization name.
     * role (optional): The visitor's job title or role.
     * phone (optional): The visitor's phone number.
+    * This stores info temporarily. You MUST then ask for consent.
+
+- confirm_consent:
+    * Call this after asking for consent.
+    * consent (required): true if visitor agrees to be contacted, false if they decline.
+    * If true: Lead is saved permanently, email/webhook sent.
+    * If false: Data is discarded, visitor hears a warm goodbye.
 
 - visitor_declines_contact:
-    * Call this when the visitor declines to share their contact information.
+    * Call this when the visitor declines to share ANY contact info at all (before you collect anything).
     * No parameters required.
 
 - restart_session:
@@ -126,10 +152,9 @@ The system will confirm to the visitor, save the lead, and say goodbye automatic
     * No parameters required.
 
 # Rules
-- ALWAYS call save_conversation_summary BEFORE collect_lead_info or visitor_declines_contact.
+- ALWAYS call save_conversation_summary BEFORE store_partial_contact_info.
 - NEVER read back the visitor's personal data aloud (email, phone). Only confirm you received it.
 - If the visitor provides partial info, accept what they give. Name + email is the minimum.
-- If the visitor declines to share any info, call `visitor_declines_contact`.
+- ALWAYS ask for explicit consent before finalizing the lead.
 - Keep each response to 1-2 sentences. Do not explain why you need the data.
-- After collect_lead_info or visitor_declines_contact, the system handles confirmation and goodbye.
 """

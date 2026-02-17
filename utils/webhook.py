@@ -52,22 +52,47 @@ async def send_session_webhook(
     if userdata.session_start_time:
         duration_seconds = int((datetime.now() - userdata.session_start_time).total_seconds())
 
-    # Build contact info
-    contact_info = {
-        "name": userdata.name,
-        "email": userdata.email,
-        "phone": userdata.phone,
-        "company": userdata.company,
-        "role": userdata.role_title,
-        # Additional fields for analytics
-        "potentialScore": userdata.intent_score * 20,  # Convert 0-5 to 0-100 scale
-        "conversationBrief": userdata.conversation_summary,
-        "biggestChallenge": userdata.biggest_challenge,
-        "visitorRole": userdata.visitor_role,
-    }
+    # Determine lead status
+    lead_status = "no_contact"
+    if userdata.lead_captured and userdata.consent_given:
+        lead_status = "complete"  # Full lead with consent
+    elif userdata.partial_name or userdata.partial_email:
+        lead_status = "partial"   # Contact info collected but no consent yet
+    elif userdata.consent_given is False:
+        lead_status = "declined"  # Explicitly declined consent
+
+    # Build contact info - use finalized data if available, else partial data
+    if userdata.lead_captured:
+        contact_info = {
+            "name": userdata.name,
+            "email": userdata.email,
+            "phone": userdata.phone,
+            "company": userdata.company,
+            "role": userdata.role_title,
+            "potentialScore": userdata.intent_score * 20,
+            "conversationBrief": userdata.conversation_summary,
+            "biggestChallenge": userdata.biggest_challenge,
+            "visitorRole": userdata.visitor_role,
+        }
+    else:
+        # Use partial data for incomplete leads
+        contact_info = {
+            "name": userdata.partial_name,
+            "email": userdata.partial_email,
+            "phone": userdata.partial_phone,
+            "company": userdata.partial_company,
+            "role": userdata.partial_role_title,
+            "potentialScore": userdata.intent_score * 20,
+            "conversationBrief": userdata.conversation_summary,
+            "biggestChallenge": userdata.biggest_challenge,
+            "visitorRole": userdata.visitor_role,
+        }
 
     # Remove None values to keep payload clean
     contact_info = {k: v for k, v in contact_info.items() if v is not None}
+
+    # Add lead status
+    contact_info["leadStatus"] = lead_status
 
     # Build session payload
     session_data = {

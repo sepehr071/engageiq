@@ -31,12 +31,22 @@ class UserData:
     # Visitor role (detected early for personalization)
     visitor_role: Optional[str] = None
 
-    # Contact info
+    # Contact info (finalized after consent)
     name: Optional[str] = None
     email: Optional[str] = None
     company: Optional[str] = None
     role_title: Optional[str] = None
     phone: Optional[str] = None
+
+    # Partial contact info (before consent is given)
+    partial_name: Optional[str] = None
+    partial_email: Optional[str] = None
+    partial_company: Optional[str] = None
+    partial_role_title: Optional[str] = None
+    partial_phone: Optional[str] = None
+
+    # Consent tracking
+    consent_given: Optional[bool] = None  # True/False/None (not yet asked)
 
     # Campaign attribution
     campaign_source: Optional[str] = None

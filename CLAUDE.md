@@ -154,6 +154,8 @@ The agent uses `detect_visitor_role` tool to capture the visitor's job role earl
 | `present_engageiq` | Present EngageIQ with client images | none |
 | `collect_challenge` | Store visitor's challenge answer | `challenge` (required) |
 | `check_intent_and_proceed` | Check engagement level | none |
+| `save_conversation_summary` | Save conversation summary for webhook | `summary` (required) |
+| `restart_session` | Restart conversation from beginning | none |
 | `connect_to_lead_capture` | Handoff or goodbye | `confirm` (required) |
 
 After qualification, `check_intent_and_proceed` uses the score:
@@ -179,6 +181,13 @@ After qualification, `check_intent_and_proceed` uses the score:
 | `trigger` | `{"new_conversation": "New Conversation"}` | UI button triggers (key=action, value=button text) |
 | `clean` | `{"clean": true}` | Reset frontend state |
 
+**Button Flow:**
+1. Backend sends button via `send_text({"new_conversation": "New Conversation"})`
+2. Button appears in frontend
+3. User clicks → sends "New Conversation" as text input to LLM
+4. LLM recognizes this and calls `restart_session` tool
+5. Session restarts with fresh greeting
+
 ### Product & Client Images
 
 **EngageIQ** is Ayand AI's product. The agent talks about EngageIQ and shows client examples:
@@ -203,7 +212,7 @@ Session data is sent to the webhook endpoint at these points:
 1. **Session shutdown** (`agent.py:on_shutdown`) — captures ALL conversations
 2. **Lead captured** (`lead_capture_agents.py:collect_lead_info`) — when contact info is collected
 3. **Visitor declines** (`main_agent.py:connect_to_lead_capture`) — when visitor declines contact
-4. **New conversation** (`lead_capture_agents.py:start_new_conversation`) — before restart
+4. **Session restart** (`restart_session` tool) — before restart
 
 **Payload structure:**
 ```json
@@ -215,7 +224,15 @@ Session data is sent to the webhook endpoint at these points:
     "date": "2026-02-16T15:30:00Z",
     "durationSeconds": 120,
     "transcript": [{"role": "user/assistant", "content": "..."}],
-    "contactInfo": {"name": "...", "email": "...", "phone": "...", "company": "...", "role": "..."}
+    "contactInfo": {
+      "name": "...",
+      "email": "...",
+      "phone": "...",
+      "company": "...",
+      "role": "...",
+      "potentialScore": 80,
+      "conversationBrief": "Marketing director interested in demand attribution. High interest."
+    }
   }]
 }
 ```
@@ -284,6 +301,10 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook (default: Ayand AI)
 - **Webhook integration**: All sessions send data to external analytics endpoint
 - **History saving**: Conversation history saved immediately on decline, not just on shutdown
 - **Session tracking**: Added `session_id` and `session_start_time` to UserData for duration calculation
+- **Conversation summary**: LLM generates summary via `save_conversation_summary` tool before ending, included in webhook `conversationBrief` field
+- **Button payload format**: Changed to `{"new_conversation": "New Conversation"}` (key=action, value=button text)
+- **Session restart**: Renamed tool to `restart_session` to prevent auto-generated duplicate buttons; LLM calls this when visitor says "New Conversation"
+- **Messaging fix**: Changed "send info to email" to "our team will contact you" — we collect leads, not send info
 
 ## Based On
 

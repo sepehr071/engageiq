@@ -280,6 +280,16 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
 
         if confirm:
             self.userdata.qualification_started = True
+
+            # Clean frontend (remove product images) before handoff
+            try:
+                await self.room.local_participant.send_text(
+                    json.dumps({"clean": True}), topic="clean"
+                )
+                logger.info("Sent clean topic before LeadCaptureAgent handoff")
+            except Exception as e:
+                logger.error(f"Failed to send clean topic: {e}")
+
             from agents.lead_capture_agents import LeadCaptureAgent
             from prompt.workflow import build_lead_capture_prompt
             # Return just the agent — no tuple message, so the main agent
