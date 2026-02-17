@@ -71,8 +71,18 @@ class LeadCaptureAgent(BaseAgent):
         self.userdata.partial_role_title = role.strip() if role else None
         self.userdata.partial_phone = phone.strip() if phone else None
 
+        # Send YES/NO consent buttons to frontend
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps({"consent_yes": "Yes", "consent_no": "No"}),
+                topic="trigger",
+            )
+            logger.info("Sent consent buttons to frontend")
+        except Exception as e:
+            logger.error(f"Failed to send consent buttons: {e}")
+
         # Return instruction to ask for consent
-        return "Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?'"
+        return "Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?' The visitor can click Yes or No buttons, or say it verbally. If they say 'Yes', call confirm_consent with consent=true. If they say 'No', call confirm_consent with consent=false."
 
     @function_tool
     async def confirm_consent(self, context: RunContext_T, consent: bool):

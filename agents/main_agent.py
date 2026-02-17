@@ -247,6 +247,16 @@ class EngageIQAssistant(Agent):
         logger.info(f"Checking intent score: {score}/5")
 
         if score >= 3:
+            # Send YES/NO contact sharing buttons to frontend
+            try:
+                await self.room.local_participant.send_text(
+                    json.dumps({"share_contact_yes": "Yes", "share_contact_no": "No"}),
+                    topic="trigger",
+                )
+                logger.info("Sent contact sharing buttons to frontend")
+            except Exception as e:
+                logger.error(f"Failed to send contact sharing buttons: {e}")
+
             # Good signal - have more conversation before asking for contact
             return """GOOD_SIGNAL: The visitor seems interested. Before asking for contact:
 
@@ -254,7 +264,9 @@ class EngageIQAssistant(Agent):
 2. Share 1-2 specific ways EngageIQ can help their business engage customers better (e.g., "For someone in your role, this means you could see which visitors are actually interested, not just who clicks")
 3. Then naturally ask if they'd like our team to contact them
 
-Only ask for contact details AFTER explaining the value. If they agree, call connect_to_lead_capture with confirm=true. If they decline, call connect_to_lead_capture with confirm=false."""
+YES/NO buttons have been sent to the frontend. The visitor can click them or say Yes/No verbally.
+If they say 'Yes' (verbally or button), call connect_to_lead_capture with confirm=true.
+If they say 'No' (verbally or button), call connect_to_lead_capture with confirm=false."""
         else:
             # Continue conversation - don't rush
             return f"""CONTINUE_CONVERSATION: Score is {score}/5. Don't rush to ask for contact.
