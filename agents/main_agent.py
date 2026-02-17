@@ -111,7 +111,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
-        return f"Role noted: {role}. Now call present_engageiq to show how EngageIQ can help someone in this role."
+        # Return None to be silent - don't announce that role was saved
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -125,7 +125,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return "Summary saved. Continue with the conversation."
+        # Return None to be silent - don't say "summary saved" out loud
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -227,11 +227,10 @@ class EngageIQAssistant(Agent):
         if any(v in challenge_lower for v in _VAGUE_CHALLENGE):
             self.userdata.intent_score += 1
             logger.info(f"Intent score after vague challenge: {self.userdata.intent_score}")
-            return "Challenge noted. Even if you're not sure, that's okay! Now call check_intent_and_proceed to determine next step."
         else:
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
-            return "Challenge noted. Now call check_intent_and_proceed to determine next step."
+        # Return None to be silent - continue natural conversation
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTENT CHECK & RE-ENGAGEMENT
