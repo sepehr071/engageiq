@@ -14,7 +14,7 @@ load_dotenv()
 
 RT_MODEL = "gpt-realtime-mini-2025-10-06"       # Realtime voice model
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")  # Fallback text model
-LLM_TEMPERATURE = 1                            # Low temperature for consistent responses
+LLM_TEMPERATURE = 0.6                          # Temperature for realtime model
 # =============================================================================
 # 2. SMTP SETTINGS
 # =============================================================================
