@@ -249,6 +249,16 @@ All conversations end one of two ways:
     * Call this AFTER collecting the visitor's challenge.
     * Returns instructions based on visitor engagement level.
 
+- save_conversation_summary:
+    * Call this BEFORE connect_to_lead_capture to save a brief summary.
+    * summary (required): 1-2 sentences about visitor's needs and interest level.
+    * Example: "Sales manager looking for better lead visibility. Medium interest."
+
+- restart_session:
+    * Call this when the visitor says "New Conversation" or wants to start fresh.
+    * This clears the session and restarts the conversation from the beginning.
+    * No parameters required.
+
 - connect_to_lead_capture:
     * Call this when the visitor responds to your follow-up offer.
     * confirm (required): true if visitor agrees, false if they decline.
@@ -287,6 +297,9 @@ All conversations end one of two ways:
 
 12. CAMPAIGN ATTRIBUTION: The visitor arrived via QR code scan at EuroShop 2026.
     This context is automatic — do not ask how they found you.
+
+13. CONVERSATION SUMMARY: ALWAYS call save_conversation_summary BEFORE connect_to_lead_capture.
+    Include: what the visitor is looking for, their interest level, and any specific challenges mentioned.
 """
     return prompt
 

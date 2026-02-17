@@ -176,7 +176,7 @@ After qualification, `check_intent_and_proceed` uses the score:
 |-------|---------|---------|
 | `message` | `{"agent_response": "..."}` | Agent text to display |
 | `products` | `[{"product_name": "...", "image": [...], "url": "..."}]` | Product data + images (array format) |
-| `trigger` | `{"type": "new_conversation", "label": "..."}` | UI button triggers |
+| `trigger` | `{"new_conversation": "New Conversation"}` | UI button triggers (key=action, value=button text) |
 | `clean` | `{"clean": true}` | Reset frontend state |
 
 ### Product & Client Images

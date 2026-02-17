@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EngageIQ Voice Agent Flow</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 3rem 0;
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Sections */
+        section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        section h2 {
+            font-size: 1.5rem;
+            color: #1e40af;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        /* Flow Diagram */
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-node {
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 500;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .flow-node.entry {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #92400e;
+        }
+
+        .flow-node.agent-main {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .flow-node.agent-lead {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+            color: #065f46;
+        }
+
+        .flow-node.decision {
+            background: #fce7f3;
+            border: 2px solid #ec4899;
+            color: #9d174d;
+            transform: rotate(0deg);
+            padding: 1rem;
+        }
+
+        .flow-node.end {
+            background: #f1f5f9;
+            border: 2px solid #64748b;
+            color: #475569;
+        }
+
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: #94a3b8;
+        }
+
+        .flow-branch {
+            display: flex;
+            gap: 2rem;
+            align-items: flex-start;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .flow-branch-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .flow-label {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .flow-tools {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .flow-tools code {
+            background: #e2e8f0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Tool Cards */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .tool-card {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 1.25rem;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .tool-card.lead {
+            border-left-color: #10b981;
+        }
+
+        .tool-card h3 {
+            font-size: 1rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+            color: #1e40af;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-card.lead h3 {
+            color: #065f46;
+        }
+
+        .tool-card p {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .tool-card .intent {
+            display: inline-block;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        /* Conversation Trace */
+        .trace-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .trace-table th {
+            background: #f1f5f9;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .trace-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+            vertical-align: top;
+        }
+
+        .trace-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .actor-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .actor-visitor {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .actor-agent {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .actor-system {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .state-change {
+            font-size: 0.85rem;
+            color: #64748b;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        /* Intent Score */
+        .intent-visual {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .score-meter {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .score-bar {
+            display: flex;
+            height: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #e2e8f0;
+        }
+
+        .score-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            flex: 1;
+            position: relative;
+        }
+
+        .score-segment.low {
+            background: #ef4444;
+        }
+
+        .score-segment.mid {
+            background: #f59e0b;
+        }
+
+        .score-segment.high {
+            background: #10b981;
+        }
+
+        .threshold-marker {
+            position: absolute;
+            right: -1px;
+            top: -8px;
+            font-size: 0.7rem;
+            color: #1e40af;
+            font-weight: 700;
+        }
+
+        .score-legend {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .score-contributions {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .contribution-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .contribution-item code {
+            background: #e2e8f0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background: #f1f5f9;
+            padding: 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .data-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .data-table code {
+            background: #e2e8f0;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+
+        /* Collapsible */
+        .collapsible {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .collapsible::after {
+            content: '\25BC';
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+
+        .collapsible.collapsed::after {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0 !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container {
+                padding: 1rem;
+            }
+
+            header h1 {
+                font-size: 1.75rem;
+            }
+
+            section {
+                padding: 1.25rem;
+            }
+
+            .flow-branch {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .trace-table, .data-table {
+                font-size: 0.8rem;
+            }
+
+            .intent-visual {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EngageIQ Voice Agent Flow</h1>
+            <p>EuroShop 2026 - LiveKit Agent Architecture</p>
+        </header>
+
+        <!-- Architecture Diagram -->
+        <section>
+            <h2>Architecture Overview</h2>
+            <div class="flow-diagram">
+                <div class="flow-node entry">Visitor Scans QR Code</div>
+                <div class="flow-arrow">|</div>
+                <div class="flow-node entry">agent.py - Create Session</div>
+                <div class="flow-arrow">|</div>
+                <div class="flow-node agent-main">
+                    <strong>EngageIQAssistant</strong>
+                    <div class="flow-tools">
+                        <code>detect_visitor_role()</code><br>
+                        <code>present_engageiq()</code> <span style="color:#f59e0b">+2</span><br>
+                        <code>collect_challenge()</code> <span style="color:#f59e0b">+3/+1</span><br>
+                        <code>check_intent_and_proceed()</code>
+                    </div>
+                </div>
+                <div class="flow-arrow">|</div>
+                <div class="flow-node decision">
+                    <strong>Intent Score Check</strong><br>
+                    Score &ge; 3 ?
+                </div>
+                <div class="flow-arrow">|</div>
+                <div class="flow-branch">
+                    <div class="flow-branch-item">
+                        <span class="flow-label">NO (Score &lt; 3)</span>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node end">Goodbye</div>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node entry">"New Conversation" Button</div>
+                    </div>
+                    <div class="flow-branch-item">
+                        <span class="flow-label">YES (Score &ge; 3)</span>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node agent-main">
+                            <code>connect_to_lead_capture(true)</code>
+                        </div>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node agent-lead">
+                            <strong>LeadCaptureAgent</strong>
+                            <div class="flow-tools">
+                                <code>collect_lead_info()</code><br>
+                                <code>start_new_conversation()</code>
+                            </div>
+                        </div>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node end">Save Lead + Email + Webhook</div>
+                        <div class="flow-arrow">|</div>
+                        <div class="flow-node entry">"New Conversation" Button</div>
+                    </div>
+                </div>
+                <div class="flow-arrow">|</div>
+                <div class="flow-node agent-main" style="border-style: dashed;">
+                    <em>Restart: New EngageIQAssistant</em>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tool Reference -->
+        <section>
+            <h2>Tool Reference</h2>
+            <p style="margin-bottom: 1rem; color: #64748b;">Tools the LLM can call during conversation</p>
+
+            <h3 style="color: #1e40af; margin: 1.5rem 0 1rem;">Main Agent Tools</h3>
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <h3>detect_visitor_role(role)</h3>
+                    <p>Capture visitor's job role for personalization</p>
+                    <p><strong>Param:</strong> role (string) - visitor's job title</p>
+                </div>
+                <div class="tool-card">
+                    <h3>present_engageiq()</h3>
+                    <p>Present EngageIQ product with CORE/DFKI client images</p>
+                    <p>Sends images to frontend via <code>products</code> topic</p>
+                    <span class="intent">+2 Intent</span>
+                </div>
+                <div class="tool-card">
+                    <h3>collect_challenge(challenge)</h3>
+                    <p>Store visitor's biggest challenge answer</p>
+                    <p><strong>Param:</strong> challenge (string)</p>
+                    <span class="intent">+3 specific / +1 vague</span>
+                </div>
+                <div class="tool-card">
+                    <h3>check_intent_and_proceed()</h3>
+                    <p>Check engagement level and determine next step</p>
+                    <p>Score &ge;3: offer lead capture</p>
+                    <p>Score &lt;3: try re-engage, then goodbye</p>
+                </div>
+                <div class="tool-card">
+                    <h3>connect_to_lead_capture(confirm)</h3>
+                    <p>Handoff to LeadCaptureAgent or say goodbye</p>
+                    <p><strong>Param:</strong> confirm (bool)</p>
+                    <p>true &rarr; seamless handoff</p>
+                    <p>false &rarr; save history + webhook</p>
+                </div>
+            </div>
+
+            <h3 style="color: #065f46; margin: 1.5rem 0 1rem;">Lead Capture Tools</h3>
+            <div class="tools-grid">
+                <div class="tool-card lead">
+                    <h3>collect_lead_info(name, email, ...)</h3>
+                    <p>Save lead and send notifications</p>
+                    <p><strong>Params:</strong> name, email, company, role, phone</p>
+                    <p>1. Validate email</p>
+                    <p>2. Save JSON to leads/</p>
+                    <p>3. Email to info@ayand.ai</p>
+                    <p>4. Send webhook</p>
+                </div>
+                <div class="tool-card lead">
+                    <h3>start_new_conversation()</h3>
+                    <p>Restart conversation with fresh agent</p>
+                    <p>1. Send <code>{"clean": true}</code></p>
+                    <p>2. Save history</p>
+                    <p>3. Send webhook</p>
+                    <p>4. Return new EngageIQAssistant</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Intent Scoring -->
+        <section>
+            <h2>Intent Scoring System</h2>
+            <div class="intent-visual">
+                <div class="score-meter">
+                    <div class="score-bar">
+                        <div class="score-segment low">0</div>
+                        <div class="score-segment low">1</div>
+                        <div class="score-segment low">2</div>
+                        <div class="score-segment mid" style="position: relative;">
+                            3
+                            <span class="threshold-marker">THRESHOLD &darr;</span>
+                        </div>
+                        <div class="score-segment high">4</div>
+                        <div class="score-segment high">5</div>
+                    </div>
+                    <div class="score-legend">
+                        <span><span style="color:#ef4444">&#9632;</span> Not Qualified (0-2)</span>
+                        <span><span style="color:#f59e0b">&#9632;</span> Qualified (3)</span>
+                        <span><span style="color:#10b981">&#9632;</span> Highly Qualified (4-5)</span>
+                    </div>
+                </div>
+                <div class="score-contributions">
+                    <h4 style="margin-bottom: 0.5rem;">Score Contributions</h4>
+                    <div class="contribution-item">
+                        <span><code>present_engageiq()</code></span>
+                        <span><strong>+2</strong></span>
+                    </div>
+                    <div class="contribution-item">
+                        <span><code>collect_challenge()</code> - specific answer</span>
+                        <span><strong>+3</strong></span>
+                    </div>
+                    <div class="contribution-item">
+                        <span><code>collect_challenge()</code> - vague answer</span>
+                        <span><strong>+1</strong></span>
+                    </div>
+                    <div class="contribution-item" style="border-bottom: none; padding-top: 0.75rem;">
+                        <span><strong>Maximum Score</strong></span>
+                        <span><strong>5</strong></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conversation Trace -->
+        <section>
+            <h2>Real-World Conversation Trace</h2>
+            <p style="margin-bottom: 1rem; color: #64748b;">Example: Successful lead capture (Marketing role)</p>
+
+            <div style="overflow-x: auto;">
+                <table class="trace-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Actor</th>
+                            <th>Message / Action</th>
+                            <th>State Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>Scans QR code, joins LiveKit room</td>
+                            <td class="state-change">session_id = "user-xxx"</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td><span class="actor-badge actor-agent">Agent</span></td>
+                            <td>"Welcome to Ayand AI! What brings you to our booth today?"</td>
+                            <td class="state-change">first_message = true</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"I work in marketing, just curious what you do."</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>detect_visitor_role("marketing")</code></td>
+                            <td class="state-change">visitor_role = "marketing"</td>
+                        </tr>
+                        <tr>
+                            <td>5</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>present_engageiq()</code> - sends CORE/DFKI images</td>
+                            <td class="state-change">intent_score = 2</td>
+                        </tr>
+                        <tr>
+                            <td>6</td>
+                            <td><span class="actor-badge actor-agent">Agent</span></td>
+                            <td>"For marketing, EngageIQ shows which campaigns drive real demand. Which channels generate qualified demand for you?"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>7</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"Honestly, we don't know. Facebook seems okay but hard to tell."</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>8</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>collect_challenge()</code> - detects vague answer</td>
+                            <td class="state-change">intent_score = 3<br>biggest_challenge = "..."</td>
+                        </tr>
+                        <tr>
+                            <td>9</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>check_intent_and_proceed()</code> - Score &ge; 3, GOOD_SIGNAL</td>
+                            <td class="state-change">qualified = true</td>
+                        </tr>
+                        <tr>
+                            <td>10</td>
+                            <td><span class="actor-badge actor-agent">Agent</span></td>
+                            <td>"Would you like me to send you more information?"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>11</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"Sure, that sounds helpful."</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>12</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>connect_to_lead_capture(true)</code></td>
+                            <td class="state-change">HANDOFF to LeadCaptureAgent</td>
+                        </tr>
+                        <tr style="background: #d1fae5;">
+                            <td>13</td>
+                            <td><span class="actor-badge actor-agent">LeadAgent</span></td>
+                            <td>"Great! Let me get your details. What's your name?"</td>
+                            <td class="state-change">on_enter() triggers</td>
+                        </tr>
+                        <tr>
+                            <td>14</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"Anna Schmidt"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>15</td>
+                            <td><span class="actor-badge agent-agent">LeadAgent</span></td>
+                            <td>"Thanks Anna. What's your email?"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>16</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"anna@company.de"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>17</td>
+                            <td><span class="actor-badge actor-agent">LeadAgent</span></td>
+                            <td>"Which company?"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>18</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>"RetailTech GmbH"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>19</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>collect_lead_info(name, email, company)</code></td>
+                            <td class="state-change">
+                                email validated<br>
+                                lead saved to JSON<br>
+                                email sent to info@ayand.ai<br>
+                                webhook sent
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>20</td>
+                            <td><span class="actor-badge actor-agent">LeadAgent</span></td>
+                            <td>"Thanks Anna! Team will be in touch. Have a great EuroShop!"</td>
+                            <td class="state-change">"New Conversation" button sent</td>
+                        </tr>
+                        <tr>
+                            <td>21</td>
+                            <td><span class="actor-badge actor-visitor">Visitor</span></td>
+                            <td>Clicks "New Conversation"</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>22</td>
+                            <td><span class="actor-badge actor-system">System</span></td>
+                            <td>Calls <code>start_new_conversation()</code></td>
+                            <td class="state-change">
+                                {"clean: true} sent<br>
+                                history saved<br>
+                                webhook sent<br>
+                                NEW EngageIQAssistant
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Frontend Protocol -->
+        <section>
+            <h2>Frontend Protocol</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Topic</th>
+                        <th>Payload</th>
+                        <th>When Sent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>message</code></td>
+                        <td><code>{"agent_response": "text"}</code></td>
+                        <td>Every agent response</td>
+                    </tr>
+                    <tr>
+                        <td><code>products</code></td>
+                        <td><code>[{"product_name": "CORE", "image": [...], "url": "..."}]</code></td>
+                        <td>present_engageiq() called</td>
+                    </tr>
+                    <tr>
+                        <td><code>trigger</code></td>
+                        <td><code>{"new_conversation": "New Conversation"}</code></td>
+                        <td>Lead captured or declined</td>
+                    </tr>
+                    <tr>
+                        <td><code>clean</code></td>
+                        <td><code>{"clean": true}</code></td>
+                        <td>Before conversation restart</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Key Files -->
+        <section>
+            <h2>Key Files</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>agent.py</code></td>
+                        <td>Entry point, session creation, shutdown hooks</td>
+                    </tr>
+                    <tr>
+                        <td><code>agents/main_agent.py</code></td>
+                        <td>EngageIQAssistant with 5 tools</td>
+                    </tr>
+                    <tr>
+                        <td><code>agents/lead_capture_agents.py</code></td>
+                        <td>LeadCaptureAgent (collect info, save, restart)</td>
+                    </tr>
+                    <tr>
+                        <td><code>core/session_state.py</code></td>
+                        <td>UserData dataclass - all session state</td>
+                    </tr>
+                    <tr>
+                        <td><code>prompt/main_agent.py</code></td>
+                        <td>Main agent prompt builder</td>
+                    </tr>
+                    <tr>
+                        <td><code>prompt/workflow.py</code></td>
+                        <td>Lead capture prompt builder</td>
+                    </tr>
+                    <tr>
+                        <td><code>config/products.py</code></td>
+                        <td>ROLE_HOOKS for personalization</td>
+                    </tr>
+                    <tr>
+                        <td><code>utils/webhook.py</code></td>
+                        <td>Send session data to analytics</td>
+                    </tr>
+                    <tr>
+                        <td><code>utils/smtp.py</code></td>
+                        <td>Email notifications to info@ayand.ai</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Role Hooks -->
+        <section>
+            <h2>Role-Based Personalization</h2>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Value Proposition</th>
+                        <th>Challenge Question</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Marketing</strong></td>
+                        <td>Know which campaigns drive real demand, not just clicks</td>
+                        <td>Which channels actually drive qualified demand?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Sales</strong></td>
+                        <td>Your best leads are the ones you never see</td>
+                        <td>How many leave without your team knowing?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Executive</strong></td>
+                        <td>Turn invisible demand into measurable pipeline</td>
+                        <td>How much demand are you missing?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Operations</strong></td>
+                        <td>Every visitor interaction contains a signal</td>
+                        <td>Do you know what visitors need before they ask?</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Digital</strong></td>
+                        <td>Your website works 24/7. Now it can qualify demand too</td>
+                        <td>Are you capturing demand outside business hours?</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <footer style="text-align: center; padding: 2rem; color: #64748b; font-size: 0.9rem;">
+            EngageIQ Voice Agent | Ayand AI | EuroShop 2026
+        </footer>
+    </div>
+
+    <script>
+        // Collapsible sections
+        document.querySelectorAll('.collapsible').forEach(header => {
+            header.addEventListener('click', () => {
+                header.classList.toggle('collapsed');
+                const content = header.nextElementSibling;
+                content.classList.toggle('collapsed');
+            });
+        });
+    </script>
+</body>
+</html>

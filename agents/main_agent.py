@@ -114,6 +114,38 @@ class EngageIQAssistant(Agent):
         return f"Role noted: {role}. Now call present_engageiq to show how EngageIQ can help someone in this role."
 
     # ══════════════════════════════════════════════════════════════════════════
+    # CONVERSATION SUMMARY
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @function_tool
+    async def save_conversation_summary(self, context: RunContext_T, summary: str):
+        """
+        Call this to save a brief summary of the conversation before ending or handing off.
+        summary (required): A 1-2 sentence summary of what the visitor is looking for and their interest level.
+        """
+        logger.info(f"Conversation summary: {summary}")
+        self.userdata.conversation_summary = summary.strip()
+        return "Summary saved. Continue with the conversation."
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SESSION RESTART
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @function_tool
+    async def restart_session(self, context: RunContext_T):
+        """
+        Call this when the visitor says "New Conversation" or wants to start fresh.
+        """
+        logger.info("Restarting session from main agent")
+        # Restart with fresh UserData (keep language)
+        lang = self.userdata.language
+        return EngageIQAssistant(
+            room=self.room,
+            userdata=UserData(language=lang),
+            first_message=True,
+        )
+
+    # ══════════════════════════════════════════════════════════════════════════
     # PRODUCT PRESENTATION
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -220,7 +252,7 @@ class EngageIQAssistant(Agent):
 
 1. Acknowledge their challenge briefly with empathy
 2. Share 1-2 specific ways EngageIQ can help their business engage customers better (e.g., "For someone in your role, this means you could see which visitors are actually interested, not just who clicks")
-3. Then naturally ask if they'd like to receive more information by email
+3. Then naturally ask if they'd like our team to contact them
 
 Only ask for contact details AFTER explaining the value. If they agree, call connect_to_lead_capture with confirm=true. If they decline, call connect_to_lead_capture with confirm=false."""
         else:
@@ -232,7 +264,7 @@ Try to learn more about their situation:
 - Share a brief example of how EngageIQ helped a similar company
 - Keep the conversation natural, not salesy
 
-If they show more interest, explain how EngageIQ helps engage customers and offer to send info. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false."""
+If they show more interest, explain how EngageIQ helps engage customers and offer to have our team contact them. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false."""
 
     # ══════════════════════════════════════════════════════════════════════════
     # HANDOFF TO LEAD CAPTURE

@@ -20,7 +20,7 @@ _WORKFLOW_LANG = {
         "booth": "[STAND TBD]",
 
         # Lead capture
-        "lc_ask": "Darf ich Ihnen weiterführende Informationen zuschicken? Dann bräuchte ich kurz Ihre Kontaktdaten.",
+        "lc_ask": "Würden Sie mir Ihre Kontaktdaten geben, damit unser Team Sie erreichen kann?",
         "lc_fields": "Name, E-Mail, Unternehmen, Ihre Funktion — und optional eine Telefonnummer.",
 
         # Close
@@ -35,7 +35,7 @@ _WORKFLOW_LANG = {
         "booth": "[BOOTH TBD]",
 
         # Lead capture
-        "lc_ask": "Would you mind sharing your contact details so we can follow up with more information?",
+        "lc_ask": "Would you mind sharing your contact details so our team can reach out to you?",
         "lc_fields": "Name, email, company, your role — and optionally a phone number.",
 
         # Close
@@ -100,6 +100,14 @@ The system will confirm to the visitor, save the lead, and say goodbye automatic
 
 # Tools
 
+- save_conversation_summary:
+    * Call this BEFORE collect_lead_info or visitor_declines_contact.
+    * summary (required): A brief 1-2 sentence summary covering:
+      - What the visitor is looking for
+      - Their interest level (high/medium/low)
+      - Any specific needs or challenges mentioned
+    * Example: "Marketing director interested in demand attribution. High interest - asked about CRM integration."
+
 - collect_lead_info:
     * Call this once you have the visitor's contact details.
     * name (required): The visitor's full name.
@@ -112,11 +120,13 @@ The system will confirm to the visitor, save the lead, and say goodbye automatic
     * Call this when the visitor declines to share their contact information.
     * No parameters required.
 
-- start_new_conversation:
-    * Call this when the visitor wants to start a new conversation.
+- restart_session:
+    * Call this when the visitor says "New Conversation" or wants to start fresh.
+    * This clears the session and restarts the conversation from the beginning.
     * No parameters required.
 
 # Rules
+- ALWAYS call save_conversation_summary BEFORE collect_lead_info or visitor_declines_contact.
 - NEVER read back the visitor's personal data aloud (email, phone). Only confirm you received it.
 - If the visitor provides partial info, accept what they give. Name + email is the minimum.
 - If the visitor declines to share any info, call `visitor_declines_contact`.

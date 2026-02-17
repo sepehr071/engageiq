@@ -29,6 +29,16 @@ class LeadCaptureAgent(BaseAgent):
         )
 
     @function_tool
+    async def save_conversation_summary(self, context: RunContext_T, summary: str):
+        """
+        Call this to save a brief summary of the conversation before collecting contact info or saying goodbye.
+        summary (required): A 1-2 sentence summary of what the visitor is looking for and their interest level.
+        """
+        logger.info(f"Conversation summary: {summary}")
+        self.userdata.conversation_summary = summary.strip()
+        return "Summary saved. Continue with the conversation."
+
+    @function_tool
     async def collect_lead_info(
         self,
         context: RunContext_T,
@@ -100,7 +110,7 @@ class LeadCaptureAgent(BaseAgent):
         # Send "new conversation" button to frontend
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"type": "new_conversation", "label": "New Conversation"}),
+                json.dumps({"new_conversation": "New Conversation"}),
                 topic="trigger",
             )
         except Exception as e:
@@ -119,7 +129,7 @@ class LeadCaptureAgent(BaseAgent):
         # Send "new conversation" button
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"type": "new_conversation", "label": "New Conversation"}),
+                json.dumps({"new_conversation": "New Conversation"}),
                 topic="trigger",
             )
         except Exception as e:
@@ -129,11 +139,11 @@ class LeadCaptureAgent(BaseAgent):
         return "No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later."
 
     @function_tool
-    async def start_new_conversation(self, context: RunContext_T):
+    async def restart_session(self, context: RunContext_T):
         """
-        Call this when the visitor wants to start a new conversation.
+        Call this when the visitor says "New Conversation" or wants to start fresh.
         """
-        logger.info("Starting new conversation")
+        logger.info("Restarting session")
 
         # Clean frontend
         try:
