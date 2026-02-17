@@ -196,26 +196,25 @@ def build_greeting(language: str) -> str:
     """Return the greeting instruction used by generate_reply on session start.
 
     Args:
-        language: ISO code (e.g., "en", "de").
+        language: ISO code (e.g., "en", "de", "fr").
 
     Returns:
         Instruction string telling the agent how to greet.
     """
-    lang_info = LANGUAGES.get(language, {})
-    english_name = lang_info.get("english_name", "English")
+    lang_info = LANGUAGES.get(language, LANGUAGES.get("de"))  # Default to German
+    english_name = lang_info.get("english_name", "German")
+    native_name = lang_info.get("name", "Deutsch")
+    formality_note = lang_info.get("formality_note", "Use appropriate formality.")
 
-    if language == "de":
-        greeting = "Hallo! Ich bin Ihr Digital Concierge bei EuroShop 2026. Was bringt Sie zu unserem Stand?"
-        lang_instruction = "Antworte auf Deutsch. Verwende die Höflichkeitsform 'Sie'."
-    else:
-        greeting = "Hi there! I'm your Digital Concierge at EuroShop 2026. What brings you to our booth today?"
-        lang_instruction = f"Respond in {english_name}."
+    # Use the greeting template from language config
+    greeting = lang_info.get("greeting_template", "Welcome to Ayand AI at EuroShop! What brings you to our booth today?")
 
     return f"""Greet the visitor:
 "{greeting}"
 
 Rules:
-- {lang_instruction}
+- Respond in {english_name} ({native_name})
+- {formality_note}
 - Keep it warm but concise — one short sentence.
 - Do NOT call any tools during greeting. Just greet naturally.
 """
