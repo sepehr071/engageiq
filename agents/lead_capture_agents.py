@@ -49,7 +49,8 @@ class LeadCaptureAgent(BaseAgent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return None  # silent
+        hint = lang_hint(self.userdata.language)
+        return f"Summary saved. Now collect their contact details. {hint}"
 
     @function_tool
     async def store_partial_contact_info(

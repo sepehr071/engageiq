@@ -119,7 +119,8 @@ class EngageIQAssistant(BaseAgent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return None  # silent
+        hint = lang_hint(self.userdata.language)
+        return f"Summary saved. Continue the conversation. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -169,13 +170,14 @@ class EngageIQAssistant(BaseAgent):
                 client = c
                 break
 
+        hint = lang_hint(self.userdata.language)
         if not client:
             logger.warning(f"show_client: unknown client '{client_name}'")
-            return None
+            return f"Continue discussing the client naturally. {hint}"
 
         # Skip if already shown
         if key in self.userdata.clients_shown:
-            return None
+            return f"Continue discussing the client naturally. {hint}"
 
         self.userdata.clients_shown.append(key)
 
@@ -194,7 +196,7 @@ class EngageIQAssistant(BaseAgent):
         except Exception as e:
             logger.error(f"Failed to send client images: {e}")
 
-        return None  # silent — agent continues talking
+        return f"Client images sent to screen. Continue discussing them naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # PRODUCT PRESENTATION
@@ -285,6 +287,8 @@ class EngageIQAssistant(BaseAgent):
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
         hint = lang_hint(self.userdata.language)
+        if not self.userdata.engageiq_presented:
+            return f"Challenge noted. Now present EngageIQ as the solution to their challenge — call present_engageiq and connect it to what they just told you. {hint}"
         return f"Challenge noted. Respond with empathy, then call check_intent_and_proceed. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -297,6 +301,12 @@ class EngageIQAssistant(BaseAgent):
         Call this AFTER collecting the visitor's challenge.
         Checks visitor engagement level and returns instructions for next step.
         """
+        # Guard: EngageIQ must be presented before checking intent
+        if not self.userdata.engageiq_presented:
+            hint = lang_hint(self.userdata.language)
+            logger.info("check_intent_and_proceed blocked: EngageIQ not yet presented")
+            return f"You haven't presented EngageIQ yet. Call present_engageiq first — connect it to the visitor's challenge or role. {hint}"
+
         score = self.userdata.intent_score
         logger.info(f"Checking intent score: {score}/5")
 

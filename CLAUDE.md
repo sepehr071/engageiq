@@ -95,7 +95,8 @@ The main agent greets, has natural conversation, detects the visitor's role when
 
 - **LLM lives on `AgentSession`**, not on individual agents. Agents only provide `instructions`.
 - **Both agents extend `BaseAgent`**: `EngageIQAssistant` and `LeadCaptureAgent` both inherit from `BaseAgent` (`agents/base.py`), which provides `_safe_reply()` (retry + fallback) and `transcription_node` (streams text to frontend).
-- **Tool return values**: Most tools return short directive instruction strings so the Realtime model generates a response. Only background tools (`save_conversation_summary`, `show_client`) return `None` (truly silent). Instructions are kept SHORT and directive to minimize double-message risk with the Realtime model.
+- **Tool return values**: ALL tools return short directive instruction strings so the Realtime model always generates a response. No tools return `None`. Instructions are kept SHORT and directive to minimize double-message risk with the Realtime model.
+- **Presentation guards**: Both `check_intent_and_proceed` and `collect_challenge` check `engageiq_presented` — if EngageIQ hasn't been presented yet, they redirect the agent to call `present_engageiq` first. This prevents skipping the product presentation.
 - **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
 - **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5, threshold ≥3 for lead capture
 - **Client images**: `show_client("core"/"dfki")` sends individual client images when discussed; `present_engageiq` sends all images during formal presentation. `clients_shown` in UserData prevents re-sending.
@@ -108,7 +109,7 @@ The main agent greets, has natural conversation, detects the visitor's role when
 - **Partial leads**: If user gives contact info but closes session, partial data is saved
 - **Transcript email extraction**: On sudden session close, `_extract_contact_from_transcript()` in `agent.py` scans the chat transcript for email addresses and populates `partial_email` if the LLM hadn't yet called `store_partial_contact_info`
 - **EngageIQ guard**: `connect_to_lead_capture` requires `engageiq_presented=True` — agent must present product before lead capture
-- **Natural product advocacy**: Agent always steers conversation toward EngageIQ naturally, even in casual exchanges. Mentioning EngageIQ is allowed anytime; formal presentation (calling `present_engageiq`) happens after 2-3 exchanges.
+- **Proactive product advocacy**: Agent connects every visitor signal (role, industry, challenge) to EngageIQ and presents as soon as it has one relevant signal. No artificial delay.
 - **Client story social proof**: Agent uses CORE Oldenburg and DFKI stories mid-conversation (one per conversation, matched to visitor context)
 - **Shutdown safety**: `on_shutdown` wraps `session.current_agent` in `try/except RuntimeError` and falls back to `session.history.items` — never loses data even if session isn't running
 - **Session restart preserves attribution**: Both `restart_session` methods save history + send webhook before restarting, and preserve `campaign_source` in the fresh `UserData`
@@ -190,11 +191,11 @@ Stored in `UserData.intent_score`.
 | Tool | Purpose | Returns |
 |------|---------|---------|
 | `detect_visitor_role` | Store visitor's role | Short instruction to continue |
-| `show_client` | Show individual client image+URL on frontend | `None` (silent — agent is already talking) |
+| `show_client` | Show individual client image+URL on frontend | Instruction to continue discussing client |
 | `present_engageiq` | Present EngageIQ with all client images | Instruction to present verbally |
-| `collect_challenge` | Store visitor's challenge answer | Instruction to respond + check intent |
-| `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions based on score |
-| `save_conversation_summary` | Save summary for webhook | `None` (silent) |
+| `collect_challenge` | Store visitor's challenge answer | Instruction to present EngageIQ (if not yet) or check intent |
+| `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions based on score (redirects to present if needed) |
+| `save_conversation_summary` | Save summary for webhook | Short confirmation |
 | `restart_session` | Save history + webhook, restart conversation | New agent |
 | `connect_to_lead_capture` | Handoff or goodbye, send clean topic | New agent (true) or goodbye instruction (false) |
 
@@ -351,14 +352,17 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 
 - **`show_client` tool**: New lightweight tool sends individual client images+URL when agent discusses CORE or DFKI — no need for full `present_engageiq`
 - **`clients_shown` tracking**: UserData tracks which client images have been sent to avoid duplicates
-- **Reduced over-pitching**: "Natural product advocacy" replaced with "less is more" — mention EngageIQ every 3-4 exchanges max, not every response
+- **Proactive presentation**: Agent presents EngageIQ as soon as it learns the visitor's role, industry, or challenge — one signal is enough. No more "wait 2-3 exchanges" delay.
 - **Anti-repetition rules**: Agent never repeats client stories, talking points, or transition phrases
 - **Name usage**: Agent uses visitor's name when shared ("Nice to meet you, Bibi!")
 - **Buying signal recognition**: Agent moves forward when visitor says "I want it" instead of continuing to pitch
 - **Simplified tool returns**: `check_intent_and_proceed` returns concise instructions instead of re-pitching EngageIQ
 - **Self-introduction variety**: Self-intro examples vary — some mention EngageIQ, some don't, avoiding robotic bridges
 - **Answer-the-question rule**: Agent doesn't redirect to questions the visitor already answered
-- **Tool return values (balanced approach)**: Most tools return short directive instruction strings to ensure the Realtime model responds after tool calls. Only background tools (`save_conversation_summary`, `show_client`) return `None` (truly silent). Instructions are kept SHORT and directive to minimize double-message risk. Previous all-`None` approach caused complete agent silence after tool calls.
+- **All tools return instructions**: Every tool returns a short directive instruction string — no more `None` returns anywhere. This ensures the Realtime model always generates a response after tool calls.
+- **Anti-chatbot rules**: Rule 11 explicitly forbids chatbot phrases ("I'm here to help", "feel free to let me know", etc.). Agent is a product demonstrator, not a passive chatbot.
+- **Never give up (Rule 18)**: When visitor says "no", agent pivots to another angle instead of giving up
+- **No dead-end responses (Rule 19)**: Every response must end with a question, connection to EngageIQ, or forward-moving statement
 - **One-message-per-turn rule**: Prompt rule 17 tells agent to follow tool instructions and respond in one message — never announce tool calls ("let me show you", "one moment")
 - **Temperature 0.7**: Increased from 0.6 for more varied responses
 

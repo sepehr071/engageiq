@@ -39,9 +39,9 @@ Do NOT re-ask for permission to collect — they already said yes. But you MUST 
 
 # Tools
 
-Tools return short instructions telling you what to do next. Follow them. One tool is truly silent.
+All tools return short instructions telling you what to do next. Follow them.
 
-- save_conversation_summary(summary): Silent. Save a summary BEFORE store_partial_contact_info.
+- save_conversation_summary(summary): Save a summary BEFORE store_partial_contact_info. Returns confirmation.
 - store_partial_contact_info(name, email, company, role, phone): Stores info + shows YES/NO consent buttons. Returns instructions to ask for consent.
 - confirm_consent(consent): true = lead saved, false = data discarded. Returns instructions for thank-you/goodbye.
 - visitor_declines_contact(): Returns goodbye instructions.
