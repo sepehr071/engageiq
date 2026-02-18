@@ -98,7 +98,7 @@ The main agent greets, has natural conversation, detects the visitor's role when
 - **Tool return strings**: Tools return instruction strings to guide the LLM's next action. Only tools that should be truly silent return `None`.
 - **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
 - **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5, threshold ≥3 for lead capture
-- **Client images**: When explaining EngageIQ, agent calls `present_engageiq` which sends CORE/DFKI images to frontend
+- **Client images**: `show_client("core"/"dfki")` sends individual client images when discussed; `present_engageiq` sends all images during formal presentation. `clients_shown` in UserData prevents re-sending.
 - **Graceful handling**: Vague answers get +1 intent (not 0), agent rephrases question once
 - **Handoffs** return a new agent instance from `@function_tool` methods, passing `chat_ctx=self.session.history` for context preservation
 - **Default language** is German (`config/languages.py:DEFAULT_LANGUAGE = "de"`)
@@ -190,7 +190,8 @@ Stored in `UserData.intent_score`.
 | Tool | Purpose | Returns |
 |------|---------|---------|
 | `detect_visitor_role` | Store visitor's role | Instruction string |
-| `present_engageiq` | Present EngageIQ with client images | Presentation overlay |
+| `show_client` | Show individual client image+URL on frontend | `None` (silent) |
+| `present_engageiq` | Present EngageIQ with all client images | Presentation overlay |
 | `collect_challenge` | Store visitor's challenge answer | Instruction string |
 | `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions |
 | `save_conversation_summary` | Save summary for webhook | Instruction string |
@@ -320,7 +321,7 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Lead status**: Webhook `status` field: `hot_lead`/`warm_lead`/`declined`/`no_contact`
 - **Webhook on email**: Webhook fires immediately when email is collected (partial lead), not just on session end
 - **EngageIQ presentation guard**: `engageiq_presented` flag in UserData; `connect_to_lead_capture` blocks until product is presented
-- **Natural product advocacy**: Self-introduction bridges to EngageIQ; agent weaves product mentions into all responses
+- **Conversation naturalness**: Agent doesn't over-pitch; mentions EngageIQ selectively (every 3-4 exchanges max), uses visitor's name, never repeats talking points
 - **Stronger language directives**: "Ignore ALL previous messages" + "from this point forward" + repeated emphasis in native language
 - **Female persona**: Agent identity is female (she/her)
 - **Ayand AI company knowledge**: Agent knows Ayand AI in detail (Düsseldorf startup, multimodal conversational AI for retail)
@@ -345,6 +346,18 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Non-blocking SMTP**: `send_lead_notification` wrapped in `run_in_executor` to avoid blocking the event loop
 - **Async product send**: `_send_product_to_frontend` is now `async` and properly `await`ed
 - **Prompt clarifications**: "Mentioning vs Presenting" distinction; `present_engageiq` allowed without role detection when visitor asks directly
+
+### Conversation Smoothness (Feb 2026)
+
+- **`show_client` tool**: New lightweight tool sends individual client images+URL when agent discusses CORE or DFKI — no need for full `present_engageiq`
+- **`clients_shown` tracking**: UserData tracks which client images have been sent to avoid duplicates
+- **Reduced over-pitching**: "Natural product advocacy" replaced with "less is more" — mention EngageIQ every 3-4 exchanges max, not every response
+- **Anti-repetition rules**: Agent never repeats client stories, talking points, or transition phrases
+- **Name usage**: Agent uses visitor's name when shared ("Nice to meet you, Bibi!")
+- **Buying signal recognition**: Agent moves forward when visitor says "I want it" instead of continuing to pitch
+- **Simplified tool returns**: `check_intent_and_proceed` returns concise instructions instead of re-pitching EngageIQ
+- **Self-introduction variety**: Self-intro examples vary — some mention EngageIQ, some don't, avoiding robotic bridges
+- **Answer-the-question rule**: Agent doesn't redirect to questions the visitor already answered
 
 ## LiveKit SDK Patterns (Critical)
 

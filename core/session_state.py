@@ -57,6 +57,7 @@ class UserData:
     lead_captured: bool = False
     next_step_offered: Optional[str] = None
     response_count: int = 0
+    clients_shown: List[str] = field(default_factory=list)  # track which client images sent
 
     # Conversation
     conversation_summary: Optional[str] = None

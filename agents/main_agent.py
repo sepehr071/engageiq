@@ -150,6 +150,52 @@ class EngageIQAssistant(BaseAgent):
         )
 
     # ══════════════════════════════════════════════════════════════════════════
+    # CLIENT IMAGE DISPLAY
+    # ══════════════════════════════════════════════════════════════════════════
+
+    @function_tool
+    async def show_client(self, context: RunContext_T, client_name: str):
+        """
+        Call this when you mention or discuss a specific client to show their images on the visitor's screen.
+        client_name (required): "core" or "dfki"
+        """
+        key = client_name.strip().lower()
+        # Find the matching client in product data
+        clients = PRODUCTS.get("engageiq", {}).get("clients", [])
+        client = None
+        for c in clients:
+            if key in c["name"].lower():
+                client = c
+                break
+
+        if not client:
+            logger.warning(f"show_client: unknown client '{client_name}'")
+            return None
+
+        # Skip if already shown
+        if key in self.userdata.clients_shown:
+            return None
+
+        self.userdata.clients_shown.append(key)
+
+        # Send single client image+URL to frontend
+        payload = [{
+            "product_name": client["name"],
+            "image": client.get("images", []),
+            "url": client.get("url", ""),
+        }]
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps(payload),
+                topic="products",
+            )
+            logger.info(f"Sent {client['name']} images to frontend")
+        except Exception as e:
+            logger.error(f"Failed to send client images: {e}")
+
+        return None  # silent — agent continues talking
+
+    # ══════════════════════════════════════════════════════════════════════════
     # PRODUCT PRESENTATION
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -162,6 +208,12 @@ class EngageIQAssistant(BaseAgent):
 
         # Mark presentation as done
         self.userdata.engageiq_presented = True
+
+        # Mark all clients as shown (present_engageiq sends all images)
+        for c in PRODUCTS.get("engageiq", {}).get("clients", []):
+            key = c["name"].lower().split()[0]  # "core", "dfki"
+            if key not in self.userdata.clients_shown:
+                self.userdata.clients_shown.append(key)
 
         # Intent: visitor engaged with greeting
         self.userdata.intent_score += 2
@@ -264,28 +316,20 @@ class EngageIQAssistant(BaseAgent):
 
             # Good signal - have more conversation before asking for contact
             hint = lang_hint(self.userdata.language)
-            return f"""GOOD_SIGNAL: The visitor seems interested. Before asking for contact:
+            return f"""GOOD_SIGNAL: The visitor seems interested.
 
-1. Acknowledge their challenge briefly with empathy
-2. Share 1-2 specific ways EngageIQ can help their business engage customers better (e.g., "For someone in your role, this means you could see which visitors are actually interested, not just who clicks")
-3. Then naturally ask if they'd like our team to contact them
+Acknowledge their challenge with empathy, then naturally ask if they'd like our team to follow up with them.
 
-YES/NO buttons have been sent to the frontend. The visitor can click them or say Yes/No verbally.
-If they say 'Yes' (verbally or button), call connect_to_lead_capture with confirm=true.
-If they say 'No' (verbally or button), call connect_to_lead_capture with confirm=false.
+YES/NO buttons are on their screen. They can click or say Yes/No.
+If Yes → call connect_to_lead_capture(confirm=true).
+If No → call connect_to_lead_capture(confirm=false).
 
 {hint}"""
         else:
             # Continue conversation - don't rush
-            return f"""CONTINUE_CONVERSATION: Score is {score}/5. Don't rush to ask for contact.
+            return f"""CONTINUE_CONVERSATION: The visitor isn't fully engaged yet.
 
-Try to learn more about their situation:
-- Ask what would make visitor engagement valuable for their business
-- Use a client story as social proof: mention how CORE Oldenburg (coworking/community hub) or DFKI (Germany's top AI research institute) uses EngageIQ — pick whichever is more relevant to the visitor's context
-- Remind them that this very conversation IS EngageIQ in action — they're experiencing it firsthand
-- Keep the conversation natural, not salesy
-
-If they show more interest, explain how EngageIQ helps engage customers and offer to have our team contact them. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false.
+Keep the conversation natural — ask about their situation, listen genuinely. If they warm up, offer to have the team follow up. If they stay disengaged, say a warm goodbye and call connect_to_lead_capture(confirm=false).
 
 {lang_hint(self.userdata.language)}"""
 
