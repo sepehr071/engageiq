@@ -4,7 +4,7 @@
 
 LiveKit voice agent for Ayand AI's EuroShop 2026 booth. Visitors scan a QR code, an avatar opens on their phone, the agent presents EngageIQ (Ayand AI's product), qualifies them as a lead, and captures their contact info.
 
-**This agent IS the product** — visitors experience EngageIQ by talking to it.
+**This agent IS the product** — visitors experience EngageIQ by talking to it. The agent has a **female persona** (she/her).
 
 ## Tech Stack
 
@@ -23,6 +23,20 @@ The agent embodies EngageIQ's core identity from `Product_Truth_Final.md`:
 - **Philosophy:** "Signal, not automation" — the agent captures demand signals, not automates tasks
 - **Core mechanism:** AI avatar engages visitors, guides intent clarification, records signals, outputs structured data
 - **Value creation:** Converting unobserved visitor interactions into measurable intent and behavioral data
+- **Live demo identity:** The agent knows it IS EngageIQ — the conversation the visitor is having IS the product in action. "You're using it right now" is the strongest proof point.
+
+### About Ayand AI (Company Knowledge)
+
+The agent knows Ayand AI in detail: Düsseldorf-based German AI startup (founded 2025) that develops multimodal conversational AI assistants for retail and consumer brands. Makes products "talk" to customers naturally through smart in-store displays and mobile assistants using voice, vision, and chat — 24/7, multilingual.
+
+### Client Knowledge (Used as Social Proof)
+
+The agent knows two real clients and uses their stories mid-conversation:
+
+- **CORE Oldenburg** — coworking space, community hub, event venue, and street-food market hall in Oldenburg, Germany. Uses EngageIQ to capture demand from visitors exploring workspaces, events, and food market.
+- **DFKI** — Germany's leading AI research institute (founded 1988), one of the world's largest independent AI research centers. Uses EngageIQ at exhibitions to make complex research accessible through conversation.
+
+Client data is stored in `config/products.py` with `description`, `industry`, `use_case`, and `story_hook` fields. The agent drops ONE client story per conversation, matched to the visitor's context (community/hospitality → CORE; research/tech → DFKI).
 
 ### Boundaries (What the Agent Never Does)
 
@@ -91,8 +105,10 @@ The main agent greets, has natural conversation, detects the visitor's role when
 - **Role-based personalization**: Agent detects visitor role, personalizes EngageIQ presentation
 - **Consent flow**: Contact info collected → YES/NO buttons → explicit consent → save or discard
 - **Partial leads**: If user gives contact info but closes session, partial data is saved
+- **Transcript email extraction**: On sudden session close, `_extract_contact_from_transcript()` in `agent.py` scans the chat transcript for email addresses and populates `partial_email` if the LLM hadn't yet called `store_partial_contact_info`
 - **EngageIQ guard**: `connect_to_lead_capture` requires `engageiq_presented=True` — agent must present product before lead capture
 - **Natural product advocacy**: Agent always steers conversation toward EngageIQ naturally, even in casual exchanges
+- **Client story social proof**: Agent uses CORE Oldenburg and DFKI stories mid-conversation (one per conversation, matched to visitor context)
 
 ### Directory Structure
 
@@ -291,6 +307,12 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 - **EngageIQ presentation guard**: `engageiq_presented` flag in UserData; `connect_to_lead_capture` blocks until product is presented
 - **Natural product advocacy**: Self-introduction bridges to EngageIQ; agent weaves product mentions into all responses
 - **Stronger language directives**: "Ignore ALL previous messages" + "from this point forward" + repeated emphasis in native language
+- **Female persona**: Agent identity is female (she/her)
+- **Ayand AI company knowledge**: Agent knows Ayand AI in detail (Düsseldorf startup, multimodal conversational AI for retail)
+- **Rich client knowledge**: CORE Oldenburg (coworking/community hub) and DFKI (AI research institute) with detailed descriptions, use cases, and story hooks in `config/products.py`
+- **Client story guidance**: Agent uses one client story per conversation as social proof, matched to visitor context
+- **Live demo identity**: Agent strongly knows it IS EngageIQ — "you're using it right now" framing throughout prompt
+- **Transcript email extraction**: Safety net in `on_shutdown()` — scans transcript for email if `partial_email` is empty before sending webhook
 
 ## LiveKit SDK Patterns (Critical)
 

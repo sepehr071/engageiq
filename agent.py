@@ -25,6 +25,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from config.settings import LOGS_DIR
 
@@ -49,6 +50,35 @@ logger = logging.getLogger(__name__)
 
 # for noisy in ["httpx", "httpcore", "openai", "livekit.agents", "urllib3", "asyncio", "livekit"]:
 #     logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRANSCRIPT EMAIL EXTRACTION (safety net for sudden session close)
+# ══════════════════════════════════════════════════════════════════════════════
+
+_EMAIL_RE = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
+
+
+def _extract_contact_from_transcript(chat_messages, userdata) -> None:
+    """Extract email from transcript if not already stored in userdata.
+
+    Safety net for sudden session close — the visitor may have said their
+    email but the LLM hadn't yet called store_partial_contact_info.
+    """
+    if userdata.email or userdata.partial_email:
+        return
+
+    from utils.history import normalize_messages
+    from utils.smtp import is_valid_email_syntax
+
+    for msg in normalize_messages(chat_messages):
+        if msg["role"] != "user":
+            continue
+        match = _EMAIL_RE.search(msg["message"])
+        if match and is_valid_email_syntax(match.group(0)):
+            userdata.partial_email = match.group(0).lower()
+            logger.info(f"Extracted email from transcript on shutdown: {userdata.partial_email}")
+            break
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -100,6 +130,9 @@ async def entrypoint(ctx: agents.JobContext):
             if ud and not ud._history_saved:
                 current_agent = session.current_agent
                 chat_history = current_agent._chat_ctx.items if current_agent and hasattr(current_agent, "_chat_ctx") else []
+
+                # Safety net: extract email from transcript if not yet stored
+                _extract_contact_from_transcript(chat_history, ud)
 
                 # Save local history
                 save_conversation_to_file(chat_history, ud)

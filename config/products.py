@@ -54,8 +54,28 @@ PRODUCTS = {
         # Client case studies with hardware installation images
         "clients": [
             {
-                "name": "CORE",
-                "description": "Ayand AI client using EngageIQ for visitor engagement",
+                "name": "CORE Oldenburg",
+                "description": (
+                    "A vibrant coworking space, community hub, event venue, and "
+                    "street-food market hall in the center of Oldenburg, Germany. "
+                    "Combines flexible workspaces, meeting rooms, community events, "
+                    "and a lively ground-floor food market for freelancers, startups, "
+                    "teams, and guests."
+                ),
+                "industry": "Coworking & Community Spaces",
+                "use_case": (
+                    "CORE uses EngageIQ to engage visitors on-site and online, "
+                    "capturing demand signals from people exploring workspaces, "
+                    "events, and food market offerings. The AI avatar helps visitors "
+                    "find the right workspace or event, while CORE's team gets "
+                    "structured data on what visitors actually want."
+                ),
+                "story_hook": (
+                    "At CORE Oldenburg, EngageIQ turns walk-in curiosity into "
+                    "actionable demand data — whether someone is looking for a "
+                    "coworking desk, booking an event space, or just discovering "
+                    "the food market."
+                ),
                 "url": "https://vimeo.com/1165136133/9930020d47?share=copy&fl=sv&fe=ci",
                 "images": [
                     "https://image.ayand.cloud/euro/core.png",
@@ -63,7 +83,27 @@ PRODUCTS = {
             },
             {
                 "name": "DFKI",
-                "description": "Ayand AI client using EngageIQ for visitor engagement",
+                "description": (
+                    "Germany's leading AI research institute and one of the largest "
+                    "independent AI research centers worldwide. Founded in 1988, "
+                    "a non-profit public-private partnership with locations across "
+                    "Germany including Kaiserslautern, Saarbruecken, Bremen, "
+                    "Oldenburg, and Berlin. Bridges world-class research with "
+                    "real-world applications in robotics, medicine, maritime "
+                    "technology, space, and media."
+                ),
+                "industry": "AI Research & Innovation",
+                "use_case": (
+                    "DFKI uses EngageIQ to engage visitors at exhibitions and "
+                    "research showcases, making complex AI research accessible "
+                    "through natural conversation. The system captures visitor "
+                    "interest signals across DFKI's diverse research areas."
+                ),
+                "story_hook": (
+                    "Even Germany's top AI research institute chose EngageIQ to "
+                    "make their work accessible to visitors — if it works for "
+                    "cutting-edge AI research, it works for any industry."
+                ),
                 "url": "https://vimeo.com/1165136145/062503170c?share=copy&fl=sv&fe=ci",
                 "images": [
                     "https://image.ayand.cloud/euro/dfki.png",
