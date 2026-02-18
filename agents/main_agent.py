@@ -109,8 +109,14 @@ class EngageIQAssistant(Agent):
     @function_tool
     async def detect_visitor_role(self, context: RunContext_T, role: str):
         """
-        Call this early in the conversation to detect and store the visitor's role.
-        role (required): The visitor's job title, role, or what they do at their company.
+        Store the visitor's professional job title or role.
+        ONLY call this when the visitor explicitly mentions their job title or business function.
+
+        role (required): A professional job title or business role.
+            GOOD examples: "Marketing Director", "CEO", "Sales Manager", "Head of E-Commerce"
+            BAD — NEVER use: person's names, greetings, "just looking", "visitor"
+
+        If the visitor only shares their name, do NOT call this tool. Wait for an actual job title.
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
@@ -253,7 +259,7 @@ class EngageIQAssistant(Agent):
             labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"share_contact_yes": labels["yes"], "share_contact_no": labels["no"]}),
+                    json.dumps({labels["share_yes"]: labels["share_yes"], labels["share_no"]: labels["share_no"]}),
                     topic="trigger",
                 )
                 logger.info("Sent contact sharing buttons to frontend")

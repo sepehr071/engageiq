@@ -87,7 +87,7 @@ class LeadCaptureAgent(BaseAgent):
         labels = get_button_labels(self.userdata.language)
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"consent_yes": labels["yes"], "consent_no": labels["no"]}),
+                json.dumps({labels["consent_yes"]: labels["consent_yes"], labels["consent_no"]: labels["consent_no"]}),
                 topic="trigger",
             )
             logger.info("Sent consent buttons to frontend")
@@ -158,7 +158,7 @@ class LeadCaptureAgent(BaseAgent):
             labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"new_conversation": labels["new_conversation"]}),
+                    json.dumps({labels["new_conversation"]: labels["new_conversation"]}),
                     topic="trigger",
                 )
             except Exception as e:
@@ -191,7 +191,7 @@ class LeadCaptureAgent(BaseAgent):
             labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"new_conversation": labels["new_conversation"]}),
+                    json.dumps({labels["new_conversation"]: labels["new_conversation"]}),
                     topic="trigger",
                 )
             except Exception as e:
@@ -210,7 +210,7 @@ class LeadCaptureAgent(BaseAgent):
         labels = get_button_labels(self.userdata.language)
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"new_conversation": labels["new_conversation"]}),
+                json.dumps({labels["new_conversation"]: labels["new_conversation"]}),
                 topic="trigger",
             )
         except Exception as e:
