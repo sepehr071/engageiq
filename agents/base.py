@@ -64,8 +64,7 @@ class BaseAgent(Agent):
         chat_ctx=None,
     ) -> None:
         logger.info(f"Initializing {self.__class__.__name__}")
-        if userdata:
-            self.userdata = userdata
+        self.userdata = userdata or UserData()
         self.room = room
 
         super().__init__(

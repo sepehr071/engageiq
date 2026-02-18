@@ -5,6 +5,7 @@ User-facing messages live in config/messages.py.
 """
 
 import os
+import logging
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -29,11 +30,11 @@ SMTP_CONFIG = {
 # 3. INTENT SCORING THRESHOLDS
 # =============================================================================
 
-INTENT_THRESHOLD_QUALIFY = 4    # Score >= 4: start asking qualification questions
-INTENT_THRESHOLD_CAPTURE = 5   # Score >= 5: attempt to capture contact info
-INTENT_THRESHOLD_HIGH = 7      # Score >= 7: high intent — push for meeting/call
-INTENT_SCORE_MIN = 1            # Minimum intent score
-INTENT_SCORE_MAX = 10           # Maximum intent score
+INTENT_THRESHOLD_QUALIFY = 3    # Matches check_intent_and_proceed threshold
+INTENT_THRESHOLD_CAPTURE = 4
+INTENT_THRESHOLD_HIGH = 5
+INTENT_SCORE_MIN = 1
+INTENT_SCORE_MAX = 5            # Actual max: 2 (present) + 3 (challenge)
 
 # =============================================================================
 # 4. CONVERSATION LIMITS
@@ -77,8 +78,18 @@ IMAGE_CDN_BASE_URL = "https://image.ayand.cloud/Images/"
 # =============================================================================
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ayand-log.vercel.app/api/webhooks/ingest")
-WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "ayand-secret-key-3dcSDSfgcGsasdcvg3235fvsaacv1")
+WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "")
 WEBHOOK_COMPANY_NAME = os.getenv("WEBHOOK_COMPANY_NAME", "Ayand AI")
 WEBHOOK_TIMEOUT = 10  # seconds
 WEBHOOK_RETRIES = 3
+
+if not WEBHOOK_API_KEY:
+    logging.getLogger(__name__).warning("WEBHOOK_API_KEY not set — webhooks will fail authentication")
+
+# =============================================================================
+# 10. AGENT IDENTITY
+# =============================================================================
+
+AVATAR_NAME = "Leila"       # Change before launch
+BOOTH_LOCATION = ""          # e.g. "C4" — appended to webhook company name
 

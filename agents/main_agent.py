@@ -5,11 +5,10 @@ simplified qualification, and intent scoring.
 This agent IS the demo: visitors experience EngageIQ by talking to it.
 """
 
-import asyncio
 import json
 import logging
-from typing import AsyncIterable
-from livekit.agents import Agent, function_tool, ModelSettings
+from livekit.agents import function_tool
+from agents.base import BaseAgent
 
 from core.session_state import UserData, RunContext_T
 from config.products import PRODUCTS, get_role_hook
@@ -58,7 +57,7 @@ def _build_product_data_for_prompt() -> dict:
     return result
 
 
-class EngageIQAssistant(Agent):
+class EngageIQAssistant(BaseAgent):
     """Main EuroShop booth agent.
 
     Handles:
@@ -74,33 +73,18 @@ class EngageIQAssistant(Agent):
         userdata: UserData | None = None,
         first_message: bool = False,
     ) -> None:
-        if userdata:
-            self.userdata = userdata
         self.first_message = first_message
-        self.room = room
         self._product_data = _build_product_data_for_prompt()
-
+        userdata = userdata or UserData()  # M1: null safety
         base = build_main_prompt(self._product_data)
-        prompt = build_prompt_with_language(base, self.userdata.language)
-
-        super().__init__(
-            instructions=prompt,
-        )
+        prompt = build_prompt_with_language(base, userdata.language)
+        super().__init__(instructions=prompt, room=room, userdata=userdata)
 
     async def on_enter(self):
         logger.info(f"EngageIQAssistant on_enter (first={self.first_message}, lang={self.userdata.language})")
-
         if self.first_message:
-            try:
-                greeting = build_greeting(self.userdata.language)
-                await self.session.generate_reply(instructions=greeting)
-            except Exception as e:
-                logger.error(f"Greeting failed: {e}")
-        else:
-            try:
-                return await super().on_enter()
-            except Exception as e:
-                logger.error(f"on_enter failed: {e}")
+            greeting = build_greeting(self.userdata.language)
+            await self._safe_reply(greeting)
 
     # ══════════════════════════════════════════════════════════════════════════
     # ROLE DETECTION
@@ -146,11 +130,22 @@ class EngageIQAssistant(Agent):
         Call this when the visitor says "New Conversation" or wants to start fresh.
         """
         logger.info("Restarting session from main agent")
-        # Restart with fresh UserData (keep language)
+        # M2: Save history + webhook before restart
+        try:
+            chat_history = self.chat_ctx.items
+            save_conversation_to_file(chat_history, self.userdata)
+            session_id = self.userdata.session_id or "unknown"
+            await send_session_webhook(session_id, chat_history, self.userdata)
+            self.userdata._history_saved = True
+            logger.info("Conversation saved and webhook sent before restart")
+        except Exception as e:
+            logger.error(f"Failed to save conversation on restart: {e}")
+        # M3: Preserve campaign_source
         lang = self.userdata.language
+        source = self.userdata.campaign_source
         return EngageIQAssistant(
             room=self.room,
-            userdata=UserData(language=lang),
+            userdata=UserData(language=lang, campaign_source=source),
             first_message=True,
         )
 
@@ -173,7 +168,7 @@ class EngageIQAssistant(Agent):
         logger.info(f"Intent score after presentation: {self.userdata.intent_score}")
 
         # Send EngageIQ + client images to frontend
-        self._send_product_to_frontend("engageiq")
+        await self._send_product_to_frontend("engageiq")
 
         # Use role-based presentation
         presentation = build_engageiq_presentation(
@@ -186,7 +181,7 @@ class EngageIQAssistant(Agent):
 
         return f"Present EngageIQ and mention clients like CORE and DFKI who use it. Personalize to their role. {lang_hint(self.userdata.language)}"
 
-    def _send_product_to_frontend(self, product_key: str) -> None:
+    async def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
         product = PRODUCTS.get(product_key)
         if not product:
@@ -212,11 +207,9 @@ class EngageIQAssistant(Agent):
             })
 
         try:
-            asyncio.create_task(
-                self.room.local_participant.send_text(
-                    json.dumps(payload),
-                    topic="products",
-                )
+            await self.room.local_participant.send_text(
+                json.dumps(payload),
+                topic="products",
             )
         except Exception as e:
             logger.error(f"Failed to send product to frontend: {e}")
@@ -333,41 +326,10 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
             return LeadCaptureAgent(
                 instructions=instructions,
                 room=self.room,
-                chat_ctx=self.chat_ctx,
+                chat_ctx=self.session.history,
                 userdata=self.userdata,
             )
         else:
-            # Save conversation history and send webhook immediately when declining
-            try:
-                chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
-                save_conversation_to_file(chat_history, self.userdata)
-
-                # Send webhook
-                session_id = self.userdata.session_id or "unknown"
-                await send_session_webhook(session_id, chat_history, self.userdata)
-
-                self.userdata._history_saved = True
-                logger.info("Conversation saved and webhook sent after visitor declined contact")
-            except Exception as e:
-                logger.error(f"Failed to save conversation on decline: {e}")
-
+            # M7: Let on_shutdown handle save/webhook — visitor may continue talking
             return f"No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later. {lang_hint(self.userdata.language)}"
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # TRANSCRIPTION — streams agent text to frontend
-    # ══════════════════════════════════════════════════════════════════════════
-
-    async def transcription_node(self, text: AsyncIterable[str], model_settings: ModelSettings) -> AsyncIterable[str]:
-        agent_response = ""
-        async for delta in text:
-            agent_response += delta
-            yield delta
-
-        # Send text to frontend
-        try:
-            await self.room.local_participant.send_text(
-                json.dumps({"agent_response": agent_response}),
-                topic="message",
-            )
-        except Exception as e:
-            logger.error(f"Failed to send transcription: {e}")

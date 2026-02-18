@@ -12,6 +12,7 @@ load_dotenv()
 
 from livekit import agents
 from livekit.agents import AgentSession, room_io
+from livekit.agents.voice.room_io import RoomOptions
 from livekit.plugins import openai
 # Note: noise_cancellation.BVC() requires LiveKit Cloud paid plan
 # from livekit.plugins import noise_cancellation
@@ -128,8 +129,20 @@ async def entrypoint(ctx: agents.JobContext):
         try:
             ud = session.userdata
             if ud and not ud._history_saved:
-                current_agent = session.current_agent
-                chat_history = current_agent._chat_ctx.items if current_agent and hasattr(current_agent, "_chat_ctx") else []
+                # C2: current_agent raises RuntimeError if session isn't running
+                chat_history = []
+                try:
+                    current_agent = session.current_agent
+                    chat_history = current_agent.chat_ctx.items  # H8: use public API
+                except RuntimeError:
+                    pass
+
+                # Fallback to session history if agent ctx was empty
+                if not chat_history:
+                    try:
+                        chat_history = list(session.history.items)
+                    except Exception:
+                        chat_history = []
 
                 # Safety net: extract email from transcript if not yet stored
                 _extract_contact_from_transcript(chat_history, ud)
@@ -170,6 +183,10 @@ async def entrypoint(ctx: agents.JobContext):
     try:
         await session.start(
             room=ctx.room,
+            room_options=RoomOptions(
+                text_output=False,
+                text_input=False,
+            ),
             agent=EngageIQAssistant(
                 room=ctx.room,
                 userdata=user_data,

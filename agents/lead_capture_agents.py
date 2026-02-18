@@ -5,6 +5,7 @@ This is the only sub-agent. Everything after qualification handoff happens here.
 Merged responsibilities: LeadCapture + Notification + Close (previously 3 separate agents).
 """
 
+import asyncio
 import json
 import logging
 from livekit.agents import function_tool
@@ -16,7 +17,6 @@ from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
 from prompt.language import lang_hint
 from config.languages import get_language_config, get_button_labels
-from utils.webhook import send_session_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class LeadCaptureAgent(BaseAgent):
 
         # Send webhook immediately with partial lead data (in case session drops)
         try:
-            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+            chat_history = self.chat_ctx.items
             session_id = self.userdata.session_id or "unknown"
             await send_session_webhook(session_id, chat_history, self.userdata)
             logger.info("Partial lead webhook sent (email collected)")
@@ -132,9 +132,10 @@ class LeadCaptureAgent(BaseAgent):
             except Exception as e:
                 logger.error(f"Failed to save lead JSON: {e}")
 
-            # Send email notification
+            # Send email notification (M9: non-blocking via executor)
             try:
-                success = send_lead_notification(
+                loop = asyncio.get_running_loop()
+                success = await loop.run_in_executor(None, lambda: send_lead_notification(
                     name=self.userdata.name or "",
                     company=self.userdata.company or "",
                     role_title=self.userdata.role_title or "",
@@ -144,7 +145,7 @@ class LeadCaptureAgent(BaseAgent):
                     biggest_challenge=self.userdata.biggest_challenge or "",
                     campaign_source=self.userdata.campaign_source or "",
                     conversation_summary=self.userdata.conversation_summary or "",
-                )
+                ))
                 if success:
                     logger.info("Lead email sent successfully")
                 else:
@@ -154,7 +155,7 @@ class LeadCaptureAgent(BaseAgent):
 
             # Send webhook with captured lead data
             try:
-                chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+                chat_history = self.chat_ctx.items
                 session_id = self.userdata.session_id or "unknown"
                 await send_session_webhook(session_id, chat_history, self.userdata)
                 logger.info("Lead webhook sent successfully")
@@ -178,21 +179,21 @@ class LeadCaptureAgent(BaseAgent):
             return f"Contact details saved with consent. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop. {lang_hint(self.userdata.language)}"
 
         else:
-            # Clear partial data (visitor declined)
+            # M6: Send webhook FIRST while data is still available
+            try:
+                chat_history = self.chat_ctx.items
+                session_id = self.userdata.session_id or "unknown"
+                await send_session_webhook(session_id, chat_history, self.userdata)
+            except Exception as e:
+                logger.error(f"Webhook failed: {e}")
+
+            # THEN clear partial data (visitor declined)
             self.userdata.partial_name = None
             self.userdata.partial_email = None
             self.userdata.partial_company = None
             self.userdata.partial_role_title = None
             self.userdata.partial_phone = None
             logger.info("Partial contact info discarded (visitor declined consent)")
-
-            # Send webhook (with partial_contact_info flag for analytics)
-            try:
-                chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
-                session_id = self.userdata.session_id or "unknown"
-                await send_session_webhook(session_id, chat_history, self.userdata)
-            except Exception as e:
-                logger.error(f"Webhook failed: {e}")
 
             # Mark history as saved
             self.userdata._history_saved = True
@@ -246,7 +247,7 @@ class LeadCaptureAgent(BaseAgent):
 
         # Save conversation history and send webhook
         try:
-            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+            chat_history = self.chat_ctx.items
             save_conversation_to_file(chat_history, self.userdata)
 
             # Send webhook
@@ -258,11 +259,12 @@ class LeadCaptureAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Failed to save conversation: {e}")
 
-        # Restart with fresh UserData (keep language)
+        # Restart with fresh UserData (keep language + campaign_source)
         from agents.main_agent import EngageIQAssistant
         lang = self.userdata.language
+        source = self.userdata.campaign_source
         return EngageIQAssistant(
             room=self.room,
-            userdata=UserData(language=lang),
+            userdata=UserData(language=lang, campaign_source=source),
             first_message=True,
         )

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from config.languages import LANGUAGES
 from config.products import get_role_hook
+from config.settings import AVATAR_NAME, BOOTH_LOCATION
 
 
 # ---------------------------------------------------------------------------
@@ -71,10 +72,6 @@ def _build_product_block(product_data: dict) -> str:
 # ---------------------------------------------------------------------------
 # Main prompt builder
 # ---------------------------------------------------------------------------
-
-AVATAR_NAME = "[AVATAR_NAME_TBD]"
-BOOTH_LOCATION = "[BOOTH TBD]"
-
 
 def build_main_prompt(product_data: dict) -> str:
     """Build the English-only base system prompt for the main EngageIQ voice agent.
@@ -151,6 +148,8 @@ You are having a real conversation with a person at a busy trade show. Be warm, 
 - If they ask how EngageIQ works → "You're looking at it! This conversation is EngageIQ in action."
 But NEVER force it. If the bridge doesn't feel natural, just continue the conversation. The opportunity will come.
 
+**Mentioning vs Presenting**: You can MENTION EngageIQ naturally anytime in conversation. But the formal PRESENTATION (calling `present_engageiq`, which shows product images on the visitor's screen) should happen after 2-3 exchanges and ideally after knowing their role.
+
 **Using client stories**: You know two real EngageIQ clients. Use their stories as social proof:
 - Drop ONE client story per conversation, at the right moment — during presentation or when re-engaging
 - Keep it to one sentence: what they are + how EngageIQ helps them
@@ -167,7 +166,7 @@ But NEVER force it. If the bridge doesn't feel natural, just continue the conver
 
 3. **Learn what they do**: When the topic of work comes up naturally, learn about their professional role. If they say "I'm [name]", that's a name — NOT a role. Only call `detect_visitor_role` when they share an actual job title like "I'm a Marketing Director" or "I run the e-commerce team." If they only share their name, acknowledge it warmly and ask what brings them to the show.
 
-4. **Present EngageIQ when the moment is right**: Once you know their role or business challenge and the conversation feels warm, introduce EngageIQ by calling `present_engageiq`. This sends client examples to their screen. Connect EngageIQ's value to THEIR specific situation — don't just recite features. For example: "For someone managing [their area], this means you could see which visitors are genuinely interested, not just who clicks..."
+4. **Present EngageIQ when the moment is right**: Once you know their role or business challenge and the conversation feels warm, introduce EngageIQ by calling `present_engageiq`. This sends client examples to their screen. Connect EngageIQ's value to THEIR specific situation — don't just recite features. For example: "For someone managing [their area], this means you could see which visitors are genuinely interested, not just who clicks..." If the visitor directly asks "What is EngageIQ?" or "Tell me about your product" — call `present_engageiq` even if you don't know their role yet. Don't let role detection block a willing visitor.
 
 5. **Ask about their challenges**: After presenting, gently ask about their challenges with customer demand. This should feel like genuine curiosity, not an interrogation. Call `collect_challenge` with their answer.
 

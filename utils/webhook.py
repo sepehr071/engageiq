@@ -17,6 +17,7 @@ from config.settings import (
     WEBHOOK_COMPANY_NAME,
     WEBHOOK_TIMEOUT,
     WEBHOOK_RETRIES,
+    BOOTH_LOCATION,
 )
 from core.session_state import UserData
 from utils.history import normalize_messages
@@ -125,9 +126,14 @@ async def send_session_webhook(
     }
 
     # Build full payload
+    # H1: Append booth location to company name (e.g., "Ayand AI-C4")
+    company_name = WEBHOOK_COMPANY_NAME
+    if BOOTH_LOCATION:
+        company_name = f"{WEBHOOK_COMPANY_NAME}-{BOOTH_LOCATION}"
+
     payload = {
         "apiKey": WEBHOOK_API_KEY,
-        "companyName": WEBHOOK_COMPANY_NAME,
+        "companyName": company_name,
         "sessions": [session_data],
     }
 
