@@ -16,6 +16,7 @@ from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
 from prompt.language import lang_hint
 from config.languages import get_language_config, get_button_labels
+from utils.webhook import send_session_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,15 @@ class LeadCaptureAgent(BaseAgent):
             logger.info("Sent consent buttons to frontend")
         except Exception as e:
             logger.error(f"Failed to send consent buttons: {e}")
+
+        # Send webhook immediately with partial lead data (in case session drops)
+        try:
+            chat_history = self._chat_ctx.items if hasattr(self, "_chat_ctx") else []
+            session_id = self.userdata.session_id or "unknown"
+            await send_session_webhook(session_id, chat_history, self.userdata)
+            logger.info("Partial lead webhook sent (email collected)")
+        except Exception as e:
+            logger.error(f"Partial lead webhook failed: {e}")
 
         # Return instruction to ask for consent
         return f"Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?' The visitor can click Yes or No buttons, or say it verbally. If they say 'Yes', call confirm_consent with consent=true. If they say 'No', call confirm_consent with consent=false. {lang_hint(self.userdata.language)}"

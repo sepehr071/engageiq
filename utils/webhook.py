@@ -24,6 +24,42 @@ from utils.history import normalize_messages
 logger = logging.getLogger(__name__)
 
 
+def _determine_status(userdata: UserData) -> str:
+    """Map lead state to webhook status field."""
+    if userdata.lead_captured and userdata.consent_given:
+        return "hot_lead"
+    if userdata.consent_given is False:
+        return "declined"
+    if userdata.partial_email or userdata.email:
+        return "warm_lead"
+    if userdata.intent_score >= 3:
+        return "warm_lead"
+    return "no_contact"
+
+
+def _determine_next_step(userdata: UserData) -> str:
+    """Derive next step from current flow state."""
+    if userdata.lead_captured and userdata.consent_given:
+        return "Team will follow up via email"
+    if userdata.consent_given is False:
+        return "No follow-up requested"
+    if userdata.partial_email:
+        return "Awaiting consent confirmation"
+    return "No contact information collected"
+
+
+def _build_brief(userdata: UserData) -> Optional[str]:
+    """Combine summary, role, and challenge into a conversation brief."""
+    parts = []
+    if userdata.conversation_summary:
+        parts.append(userdata.conversation_summary)
+    if userdata.visitor_role:
+        parts.append(f"Role: {userdata.visitor_role}")
+    if userdata.biggest_challenge:
+        parts.append(f"Challenge: {userdata.biggest_challenge}")
+    return " | ".join(parts) if parts else None
+
+
 async def send_session_webhook(
     session_id: str,
     chat_messages: List,
@@ -52,47 +88,29 @@ async def send_session_webhook(
     if userdata.session_start_time:
         duration_seconds = int((datetime.now() - userdata.session_start_time).total_seconds())
 
-    # Determine lead status
-    lead_status = "no_contact"
-    if userdata.lead_captured and userdata.consent_given:
-        lead_status = "complete"  # Full lead with consent
-    elif userdata.partial_name or userdata.partial_email:
-        lead_status = "partial"   # Contact info collected but no consent yet
-    elif userdata.consent_given is False:
-        lead_status = "declined"  # Explicitly declined consent
-
-    # Build contact info - use finalized data if available, else partial data
+    # Build contact info — use finalized data if available, else partial data
     if userdata.lead_captured:
-        contact_info = {
-            "name": userdata.name,
-            "email": userdata.email,
-            "phone": userdata.phone,
-            "company": userdata.company,
-            "role": userdata.role_title,
-            "potentialScore": userdata.intent_score * 20,
-            "conversationBrief": userdata.conversation_summary,
-            "biggestChallenge": userdata.biggest_challenge,
-            "visitorRole": userdata.visitor_role,
-        }
+        name_val = userdata.name
+        email_val = userdata.email
+        phone_val = userdata.phone
     else:
-        # Use partial data for incomplete leads
-        contact_info = {
-            "name": userdata.partial_name,
-            "email": userdata.partial_email,
-            "phone": userdata.partial_phone,
-            "company": userdata.partial_company,
-            "role": userdata.partial_role_title,
-            "potentialScore": userdata.intent_score * 20,
-            "conversationBrief": userdata.conversation_summary,
-            "biggestChallenge": userdata.biggest_challenge,
-            "visitorRole": userdata.visitor_role,
-        }
+        name_val = userdata.partial_name
+        email_val = userdata.partial_email
+        phone_val = userdata.partial_phone
+
+    contact_info = {
+        "name": name_val,
+        "email": email_val,
+        "phone": phone_val,
+        "reachability": email_val,
+        "potentialScore": userdata.intent_score * 20,
+        "conversationBrief": _build_brief(userdata),
+        "nextStep": _determine_next_step(userdata),
+        "status": _determine_status(userdata),
+    }
 
     # Remove None values to keep payload clean
     contact_info = {k: v for k, v in contact_info.items() if v is not None}
-
-    # Add lead status
-    contact_info["leadStatus"] = lead_status
 
     # Build session payload
     session_data = {

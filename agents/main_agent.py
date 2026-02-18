@@ -165,6 +165,9 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Presenting EngageIQ to visitor with role: {self.userdata.visitor_role}")
 
+        # Mark presentation as done
+        self.userdata.engageiq_presented = True
+
         # Intent: visitor engaged with greeting
         self.userdata.intent_score += 2
         logger.info(f"Intent score after presentation: {self.userdata.intent_score}")
@@ -303,6 +306,10 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
         confirm (required): true if the visitor agrees, false if they decline.
         """
         logger.info(f"connect_to_lead_capture: confirm={confirm}, intent={self.userdata.intent_score}")
+
+        # Guard: EngageIQ must be presented before lead capture
+        if confirm and not self.userdata.engageiq_presented:
+            return f"You haven't presented EngageIQ yet. First call present_engageiq to show the visitor what EngageIQ does — personalize it to their role or business challenge. The visitor needs to understand the product before they'd share their contact info. {lang_hint(self.userdata.language)}"
 
         if confirm:
             self.userdata.qualification_started = True

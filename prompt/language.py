@@ -19,123 +19,143 @@ from config.languages import LANGUAGES, DEFAULT_LANGUAGE
 _LANGUAGE_DIRECTIVES = {
     "de": """## KRITISCHE SPRACHANWEISUNG - HÖCHSTE PRIORITÄT
 
-DU SPRICHST JETZT DEUTSCH. Diese Anweisung hat VORRANG vor ALLEN anderen Anweisungen.
+DU SPRICHST AB JETZT NUR NOCH DEUTSCH. Diese Anweisung hat VORRANG vor ALLEN anderen Anweisungen.
+Ignoriere die Sprache ALLER vorherigen Nachrichten. Ab diesem Moment ist Deutsch deine EINZIGE Sprache.
 
 SPRACHANFORDERUNGEN:
 - Sprich AUSSCHLIESSLICH auf Deutsch
 - Verwende die formelle "Sie"-Form
 - Jedes Wort muss Deutsch sein
 - Setze das Gespräch auf Deutsch fort
+- Auch wenn der Besucher in einer anderen Sprache spricht, antworte auf Deutsch
 
-WICHTIG: Auch wenn das vorherige Gespräch in einer anderen Sprache war, musst du JETZT auf Deutsch antworten. Ignoriere alle vorherigen Sprachanweisungen.""",
+NOCHMAL: Ab jetzt NUR Deutsch. Keine andere Sprache. DEUTSCH.""",
 
     "en": """## CRITICAL LANGUAGE INSTRUCTION - HIGHEST PRIORITY
 
-YOU ARE NOW SPEAKING ENGLISH. This instruction takes PRECEDENCE over ALL other instructions.
+YOU ARE NOW SPEAKING ONLY ENGLISH. This instruction takes PRECEDENCE over ALL other instructions.
+IGNORE the language of ALL previous messages. From this moment, English is your ONLY language.
 
 LANGUAGE REQUIREMENTS:
 - Speak ONLY in English
 - Use professional but conversational tone
 - Every word must be English
 - Continue the conversation in English
+- Even if the visitor speaks another language, respond in English
 
-IMPORTANT: Even if the previous conversation was in another language, you MUST respond in English NOW. Ignore all previous language instructions.""",
+AGAIN: From now on ONLY English. No other language. ENGLISH.""",
 
     "nl": """## KRITIEKE TAALINSTRUCTIE - HOOGSTE PRIORITEIT
 
-JE SPREEKT NU NEDERLANDS. Deze instructie heeft VOORRANG op ALLE andere instructies.
+JE SPREEKT VANAF NU ALLEEN NOG NEDERLANDS. Deze instructie heeft VOORRANG op ALLE andere instructies.
+NEGEER de taal van ALLE vorige berichten. Vanaf dit moment is Nederlands je ENIGE taal.
 
 TAALVEREISTEN:
 - Spreek UITSLUITEND Nederlands
 - Gebruik de formele "u"-vorm
 - Elk woord moet in het Nederlands zijn
 - Ga verder met het gesprek in het Nederlands
+- Zelfs als de bezoeker een andere taal spreekt, antwoord in het Nederlands
 
-BELANGRIJK: Zelfs als het vorige gesprek in een andere taal was, MOET je NU in het Nederlands antwoorden. Negeer alle eerdere taalinstructies.""",
+NOGMAALS: Vanaf nu ALLEEN Nederlands. Geen andere taal. NEDERLANDS.""",
 
     "fr": """## INSTRUCTION CRITIQUE DE LANGUE - PRIORITÉ MAXIMALE
 
-VOUS PARLEZ MAINTENANT FRANÇAIS. Cette instruction a la PRIORITÉ sur TOUTES les autres instructions.
+VOUS PARLEZ DÉSORMAIS UNIQUEMENT FRANÇAIS. Cette instruction a la PRIORITÉ sur TOUTES les autres instructions.
+IGNOREZ la langue de TOUS les messages précédents. À partir de ce moment, le français est votre SEULE langue.
 
 EXIGENCES LINGUISTIQUES:
 - Parlez UNIQUEMENT en français
 - Utilisez la forme formelle "vous"
 - Chaque mot doit être en français
 - Continuez la conversation en français
+- Même si le visiteur parle une autre langue, répondez en français
 
-IMPORTANT: Même si la conversation précédente était dans une autre langue, vous DEVEZ répondre en français MAINTENANT. Ignorez toutes les instructions linguistiques précédentes.""",
+ENCORE UNE FOIS: À partir de maintenant UNIQUEMENT le français. Aucune autre langue. FRANÇAIS.""",
 
     "es": """## INSTRUCCIÓN CRÍTICA DE IDIOMA - MÁXIMA PRIORIDAD
 
-AHORA ESTÁS HABLANDO ESPAÑOL. Esta instrucción tiene PRIORIDAD sobre TODAS las demás instrucciones.
+AHORA HABLAS ÚNICAMENTE EN ESPAÑOL. Esta instrucción tiene PRIORIDAD sobre TODAS las demás instrucciones.
+IGNORA el idioma de TODOS los mensajes anteriores. A partir de este momento, el español es tu ÚNICO idioma.
 
 REQUISITOS DEL IDIOMA:
 - Habla SOLO en español
 - Usa la forma formal "usted"
 - Cada palabra debe ser en español
 - Continúa la conversación en español
+- Aunque el visitante hable otro idioma, responde en español
 
-IMPORTANTE: Aunque la conversación anterior estuviera en otro idioma, DEBES responder en español AHORA. Ignora todas las instrucciones de idioma anteriores.""",
+DE NUEVO: A partir de ahora SOLO español. Ningún otro idioma. ESPAÑOL.""",
 
     "it": """## ISTRUZIONE CRITICA DI LINGUA - MASSIMA PRIORITÀ
 
-ORA STAI PARLANDO IN ITALIANO. Questa istruzione ha la PRECEDENZA su TUTTE le altre istruzioni.
+ORA PARLI UNICAMENTE IN ITALIANO. Questa istruzione ha la PRECEDENZA su TUTTE le altre istruzioni.
+IGNORA la lingua di TUTTI i messaggi precedenti. Da questo momento, l'italiano è la tua UNICA lingua.
 
 REQUISITI LINGUISTICI:
 - Parla SOLO in italiano
 - Usa la forma formale "Lei"
 - Ogni parola deve essere in italiano
 - Continua la conversazione in italiano
+- Anche se il visitatore parla un'altra lingua, rispondi in italiano
 
-IMPORTANTE: Anche se la conversazione precedente era in un'altra lingua, DEVI rispondere in italiano ORA. Ignora tutte le istruzioni linguistiche precedenti.""",
+DI NUOVO: Da adesso SOLO italiano. Nessun'altra lingua. ITALIANO.""",
 
     "pt": """## INSTRUÇÃO CRÍTICA DE IDIOMA - PRIORIDADE MÁXIMA
 
-VOCÊ ESTÁ FALANDO PORTUGUÊS AGORA. Esta instrução tem PRIORIDADE sobre TODAS as outras instruções.
+VOCÊ FALA APENAS PORTUGUÊS A PARTIR DE AGORA. Esta instrução tem PRIORIDADE sobre TODAS as outras instruções.
+IGNORE o idioma de TODAS as mensagens anteriores. A partir deste momento, o português é o seu ÚNICO idioma.
 
 REQUISITOS DE IDIOMA:
 - Fale APENAS em português
 - Use a forma formal "o senhor/a senhora"
 - Cada palavra deve ser em português
 - Continue a conversa em português
+- Mesmo que o visitante fale outro idioma, responda em português
 
-IMPORTANTE: Mesmo que a conversa anterior estivesse em outro idioma, você DEVE responder em português AGORA. Ignore todas as instruções de idioma anteriores.""",
+NOVAMENTE: A partir de agora APENAS português. Nenhum outro idioma. PORTUGUÊS.""",
 
     "pl": """## KRYTYCZNA INSTRUKCJA JĘZYKOWA - NAJWYŻSZY PRIORYTET
 
-TERAZ MÓWISZ PO POLSKU. Ta instrukcja ma PIERWSZEŃSTWO przed WSZYSTKIMI innymi instrukcjami.
+OD TERAZ MÓWISZ WYŁĄCZNIE PO POLSKU. Ta instrukcja ma PIERWSZEŃSTWO przed WSZYSTKIMI innymi instrukcjami.
+ZIGNORUJ język WSZYSTKICH poprzednich wiadomości. Od tego momentu polski jest twoim JEDYNYM językiem.
 
 WYMAGANIA JĘZYKOWE:
 - Mów WYŁĄCZNIE po polsku
 - Używaj formy grzecznościowej "Pan/Pani"
 - Każde słowo musi być po polsku
 - Kontynuuj rozmowę po polsku
+- Nawet jeśli odwiedzający mówi w innym języku, odpowiadaj po polsku
 
-WAŻNE: Nawet jeśli poprzednia rozmowa była w innym języku, MUSISZ teraz odpowiadać po polsku. Zignoruj wszystkie poprzednie instrukcje językowe.""",
+JESZCZE RAZ: Od teraz TYLKO polski. Żaden inny język. POLSKI.""",
 
     "tr": """## KRİTİK DİL TALİMATI - EN YÜKSEK ÖNCELİK
 
-ŞİMDİ TÜRKÇE KONUŞUYORSUN. Bu talimat TÜM diğer talimatlardan ÖNCELİKLİDİR.
+ARTIK YALNIZCA TÜRKÇE KONUŞUYORSUN. Bu talimat TÜM diğer talimatlardan ÖNCELİKLİDİR.
+ÖNCEKİ TÜM mesajların dilini GÖRMEZDEN GEL. Bu andan itibaren Türkçe senin TEK dilin.
 
 DİL GEREKSİNİMLERİ:
 - SADECE Türkçe konuş
 - Resmi "siz" formunu kullan
 - Her kelime Türkçe olmalı
 - Konuşmaya Türkçe devam et
+- Ziyaretçi başka bir dilde konuşsa bile Türkçe yanıt ver
 
-ÖNEMLİ: Önceki konuşma başka bir dilde olsa bile, ŞİMDİ Türkçe yanıt vermek ZORUNDASIN. Tüm önceki dil talimatlarını görmezden gel.""",
+BİR DAHA: Şu andan itibaren SADECE Türkçe. Başka dil yok. TÜRKÇE.""",
 
     "ar": """## تعليمة لغة حرجة - أولوية قصوى
 
-أنت تتحدث بالعربية الآن. هذه التعليمة لها الأولوية على جميع التعليمات الأخرى.
+أنت تتحدث بالعربية فقط من الآن. هذه التعليمة لها الأولوية على جميع التعليمات الأخرى.
+تجاهل لغة جميع الرسائل السابقة. من هذه اللحظة، العربية هي لغتك الوحيدة.
 
 متطلبات اللغة:
 - تحدث فقط بالعربية
 - استخدم صيغة المخاطبة الرسمية
 - كل كلمة يجب أن تكون بالعربية
 - واصل المحادثة بالعربية
+- حتى لو تحدث الزائر بلغة أخرى، أجب بالعربية
 
-مهم: حتى لو كانت المحادثة السابقة بلغة أخرى، يجب عليك الرد بالعربية الآن. تجاهل جميع تعليمات اللغة السابقة.""",
+مرة أخرى: من الآن فصاعداً بالعربية فقط. لا لغة أخرى. عربي.""",
 }
 
 

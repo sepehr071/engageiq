@@ -52,6 +52,7 @@ class UserData:
     campaign_source: Optional[str] = None
 
     # Flow control
+    engageiq_presented: bool = False
     qualification_started: bool = False
     lead_captured: bool = False
     next_step_offered: Optional[str] = None

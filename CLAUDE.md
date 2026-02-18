@@ -91,6 +91,8 @@ The main agent greets, has natural conversation, detects the visitor's role when
 - **Role-based personalization**: Agent detects visitor role, personalizes EngageIQ presentation
 - **Consent flow**: Contact info collected → YES/NO buttons → explicit consent → save or discard
 - **Partial leads**: If user gives contact info but closes session, partial data is saved
+- **EngageIQ guard**: `connect_to_lead_capture` requires `engageiq_presented=True` — agent must present product before lead capture
+- **Natural product advocacy**: Agent always steers conversation toward EngageIQ naturally, even in casual exchanges
 
 ### Directory Structure
 
@@ -212,19 +214,26 @@ Stored in `UserData.intent_score`.
 |-------|---------|---------|
 | `message` | `{"agent_response": "..."}` | Agent text to display |
 | `products` | `[{"product_name": "...", "image": [...], "url": "..."}]` | Product data + images |
-| `trigger` | `{"consent_yes": "Yes", "consent_no": "No"}` | YES/NO consent buttons |
-| `trigger` | `{"share_contact_yes": "Yes", "share_contact_no": "No"}` | Contact sharing buttons |
-| `trigger` | `{"new_conversation": "New Conversation"}` | New conversation button |
+| `trigger` | `{"Ja, einverstanden": "Ja, einverstanden", ...}` | Consent buttons (label=key, localized) |
+| `trigger` | `{"Ja, gerne": "Ja, gerne", ...}` | Contact sharing buttons (label=key, localized) |
+| `trigger` | `{"Neues Gespräch": "Neues Gespräch", ...}` | New conversation button (localized) |
 | `clean` | `{"clean": true}` | Clear product images from frontend |
 | `language` | `{"language": "fr"}` | Switch agent language (frontend → agent) |
 
 ### Webhook Integration
 
-**Lead status** included in webhook payload:
-- `no_contact` — no contact info collected
-- `partial` — contact info collected but no consent (session ended abruptly)
-- `complete` — full lead with consent
-- `declined` — explicitly declined consent
+**Webhook schema** matches target format with `contactInfo` fields:
+- `name`, `email`, `phone`, `reachability` — contact details
+- `potentialScore` — `intent_score * 20` (0-100 scale)
+- `conversationBrief` — summary + role + challenge combined
+- `nextStep` — derived from flow state (e.g., "Team will follow up via email")
+- `status` — `hot_lead` / `warm_lead` / `declined` / `no_contact`
+
+**Webhook triggers**:
+- Session shutdown (always)
+- After consent confirmation (`confirm_consent`)
+- When visitor declines contact (`connect_to_lead_capture(confirm=false)`)
+- **Immediately when email is collected** (`store_partial_contact_info`) — ensures partial lead data is sent even if session drops before consent
 
 ### Role-Based Personalization
 
@@ -277,7 +286,11 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 - **10 languages**: German (default), English, Dutch, French, Spanish, Italian, Portuguese, Polish, Turkish, Arabic
 - **Temperature**: Set to 0.6 for more consistent responses
 - **Frontend clean**: Product images cleared when entering lead capture
-- **Lead status**: Webhook includes `leadStatus` field (no_contact/partial/complete/declined)
+- **Lead status**: Webhook `status` field: `hot_lead`/`warm_lead`/`declined`/`no_contact`
+- **Webhook on email**: Webhook fires immediately when email is collected (partial lead), not just on session end
+- **EngageIQ presentation guard**: `engageiq_presented` flag in UserData; `connect_to_lead_capture` blocks until product is presented
+- **Natural product advocacy**: Self-introduction bridges to EngageIQ; agent weaves product mentions into all responses
+- **Stronger language directives**: "Ignore ALL previous messages" + "from this point forward" + repeated emphasis in native language
 
 ## LiveKit SDK Patterns (Critical)
 
@@ -293,6 +306,6 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 Language directives MUST be:
 1. **At the TOP** of the system prompt (highest salience position for OpenAI Realtime)
 2. **Written in the target language** (German directive in German, etc.) — English-only directives are ignored by the model
-3. **Strong and emphatic** — UPPERCASE, "HIGHEST PRIORITY", "OVERRIDES all previous"
+3. **Strong and emphatic** — UPPERCASE, "HIGHEST PRIORITY", "IGNORE all previous messages", repeated emphasis at end
 
 The `prompt/language.py` file is the single source of truth. Never add language directives to base prompts. Always use `build_prompt_with_language(base, language)` to compose.
