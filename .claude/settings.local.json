@@ -7,7 +7,22 @@
       "mcp__livekit-docs__docs_search",
       "mcp__livekit-docs__get_pages",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__query-docs"
+      "mcp__context7__query-docs",
+      "Bash(git --no-pager log --oneline --all --graph)",
+      "Bash(printenv:*)",
+      "WebSearch",
+      "WebFetch(domain:livekit.io)",
+      "WebFetch(domain:docs.livekit.io)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(conda run:*)",
+      "Bash(C:/Users/USer/miniconda3/envs/engage/python.exe -c \"import livekit.agents; print\\(livekit.agents.__file__\\)\")",
+      "Bash(find:*)",
+      "Bash(C:/Users/USer/miniconda3/envs/engage/python.exe:*)"
     ]
   },
   "prefersReducedMotion": true

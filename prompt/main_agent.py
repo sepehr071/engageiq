@@ -4,8 +4,11 @@ Main agent prompt — EngageIQ product knowledge, natural conversation, and beha
 No RAG needed: all product data is baked into the prompt at build time.
 The agent IS the product (EngageIQ demoing itself at EuroShop 2026).
 
+Base prompt is always English. Language directives are handled by prompt/language.py
+and prepended at the TOP by callers using build_prompt_with_language().
+
 Functions:
-    build_main_prompt(language, product_data)  → full system prompt
+    build_main_prompt(product_data)            → English-only base system prompt
     build_greeting(language)                   → greeting instruction for generate_reply
     build_engageiq_presentation(language, product_data, visitor_role) → EngageIQ presentation overlay
 """
@@ -56,25 +59,6 @@ def _build_product_block(product_data: dict) -> str:
     return "\n".join(lines)
 
 
-def _build_language_directive(language: str) -> str:
-    """Build a language directive for non-English languages."""
-    if language == "en":
-        return ""
-
-    lang_info = LANGUAGES.get(language, {})
-    english_name = lang_info.get("english_name", language.upper())
-    native_name = lang_info.get("name", language.upper())
-    formality = lang_info.get("formality_note", "Use appropriate formality.")
-
-    return f"""
-
-# Language Instruction
-
-You must respond in {english_name} ({native_name}) for all responses.
-{formality}
-"""
-
-
 # ---------------------------------------------------------------------------
 # Main prompt builder
 # ---------------------------------------------------------------------------
@@ -83,18 +67,20 @@ AVATAR_NAME = "[AVATAR_NAME_TBD]"
 BOOTH_LOCATION = "[BOOTH TBD]"
 
 
-def build_main_prompt(language: str, product_data: dict) -> str:
-    """Build the full system prompt for the main EngageIQ voice agent.
+def build_main_prompt(product_data: dict) -> str:
+    """Build the English-only base system prompt for the main EngageIQ voice agent.
+
+    Language directives are NOT included here. Callers should use
+    build_prompt_with_language() from prompt/language.py to prepend
+    the language directive at the TOP of this base prompt.
 
     Args:
-        language: ISO code (e.g., "en", "de", "fr").
         product_data: Dict containing EngageIQ product info.
 
     Returns:
-        Complete system prompt string.
+        English-only base system prompt string.
     """
     product_knowledge = _build_product_block(product_data)
-    language_directive = _build_language_directive(language)
 
     prompt = f"""# Identity
 
@@ -183,7 +169,6 @@ Be natural and conversational. Don't follow a rigid script. Here's a general gui
 7. **No hallucinations**: Only state facts from the product knowledge above.
 
 8. **Session summary**: Call `save_conversation_summary` BEFORE `connect_to_lead_capture` with a brief summary of their needs and interest level.
-{language_directive}
 """
     return prompt
 

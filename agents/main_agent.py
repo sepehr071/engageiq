@@ -14,6 +14,7 @@ from livekit.agents import Agent, function_tool, ModelSettings
 from core.session_state import UserData, RunContext_T
 from config.products import PRODUCTS, get_role_hook
 from prompt.main_agent import build_main_prompt, build_greeting, build_engageiq_presentation
+from prompt.language import build_prompt_with_language
 from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
 
@@ -78,7 +79,8 @@ class EngageIQAssistant(Agent):
         self.room = room
         self._product_data = _build_product_data_for_prompt()
 
-        prompt = build_main_prompt(self.userdata.language, self._product_data)
+        base = build_main_prompt(self._product_data)
+        prompt = build_prompt_with_language(base, self.userdata.language)
 
         super().__init__(
             instructions=prompt,
@@ -305,8 +307,10 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
             from prompt.workflow import build_lead_capture_prompt
             # Return just the agent — no tuple message, so the main agent
             # stays silent and LeadCaptureAgent speaks via on_enter()
+            base = build_lead_capture_prompt()
+            instructions = build_prompt_with_language(base, self.userdata.language)
             return LeadCaptureAgent(
-                instructions=build_lead_capture_prompt(self.userdata.language),
+                instructions=instructions,
                 room=self.room,
                 chat_ctx=self.chat_ctx,
                 userdata=self.userdata,

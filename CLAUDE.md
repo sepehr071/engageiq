@@ -8,7 +8,7 @@ LiveKit voice agent for Ayand AI's EuroShop 2026 booth. Visitors scan a QR code,
 
 ## Tech Stack
 
-- **Runtime:** Python 3.12
+- **Runtime:** Python 3.9 (conda env `engage`)
 - **Voice Framework:** LiveKit Agents SDK (`livekit-agents 1.4.1`)
 - **Voice Model:** OpenAI Realtime API (`gpt-realtime-mini-2025-10-06`)
 - **Model Temperature:** `0.6` (configured in `config/settings.py`)
@@ -58,16 +58,22 @@ The main agent greets, has natural conversation, detects the visitor's role when
 
 ### Prompt Architecture
 
-**Simplified architecture with single English base prompt + language directive:**
+**English base prompt + native-language directive at TOP:**
 
-The main prompt (`prompt/main_agent.py`) has these sections:
-1. **Identity** — avatar role, company one-liner, personality, self-introduction rules
-2. **About EngageIQ** — what it does, value, clients (CORE, DFKI), chatbot differentiation
-3. **Product Knowledge** — EngageIQ product details
-4. **How to Have This Conversation** — natural flow guide (not rigid steps)
-5. **Tools** — function tools documented inline
-6. **Behavior Rules** — covering response length, conversation style, pricing
-7. **Language Instruction** — injected only for non-English languages
+```
+[Native-language directive]     ← from prompt/language.py, prepended at TOP
+[Identity]                      ← English base from prompt/main_agent.py
+[About EngageIQ]
+[Product Knowledge]
+[How to Have This Conversation]
+[Tools]
+[Behavior Rules]
+```
+
+- **Base prompts** (`prompt/main_agent.py`, `prompt/workflow.py`) are always English-only
+- **Language directives** (`prompt/language.py`) are written IN the target language (German in German, etc.) for maximum Realtime model compliance
+- **Combined at runtime** via `build_prompt_with_language(base, language)` — directive at TOP for highest salience
+- **Mid-conversation switching**: `LanguageSwitchHandler` rebuilds the full prompt and calls `update_instructions()`
 
 **Key principle:** Prompts guide naturally, don't force rigid sequences. The LLM decides when to call tools based on conversation flow.
 
@@ -75,7 +81,7 @@ The main prompt (`prompt/main_agent.py`) has these sections:
 
 - **LLM lives on `AgentSession`**, not on individual agents. Agents only provide `instructions`.
 - **Silent tools**: Tools return `None` to avoid robotic announcements like "Let me save a quick summary"
-- **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset)
+- **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
 - **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5
 - **Client images**: When explaining EngageIQ, agent calls `present_engageiq` which sends CORE/DFKI images to frontend
 - **Graceful handling**: Vague answers get +1 intent (not 0), agent rephrases question once
@@ -95,16 +101,18 @@ agents/
   main_agent.py             # EngageIQAssistant (greet, detect role, present, qualify, handoff)
   lead_capture_agents.py    # LeadCaptureAgent (collect contact, consent, notify, goodbye, restart)
 config/
-  languages.py              # 10 languages with greetings and formality rules
+  languages.py              # 10 languages with formality rules
   products.py               # EngageIQ config + ROLE_HOOKS for personalization
   settings.py               # LLM temperature, webhook config, thresholds
 core/
   session_state.py          # UserData dataclass (includes partial contact fields)
   lead_storage.py           # JSON lead file storage
 prompt/
-  main_agent.py             # Main agent prompt builder (English base + language directive)
-  workflow.py               # LeadCaptureAgent prompt builder
+  language.py               # Language directives (native-language, single source of truth)
+  main_agent.py             # Main agent English base prompt builder
+  workflow.py               # LeadCaptureAgent English base prompt builder
 utils/
+  language_switcher.py      # Mid-conversation language switching via data channel
   smtp.py                   # Gmail SMTP for lead notifications
   history.py                # Conversation transcript saving
   webhook.py                # Webhook integration with lead status tracking
@@ -131,12 +139,13 @@ Return a new agent instance from a `@function_tool` to trigger handoff:
 @function_tool
 async def connect_to_lead_capture(self, context: RunContext_T, confirm: bool):
     if confirm:
-        # Send clean topic to remove product images
         await self.room.local_participant.send_text(
             json.dumps({"clean": True}), topic="clean"
         )
+        base = build_lead_capture_prompt()
+        instructions = build_prompt_with_language(base, self.userdata.language)
         return LeadCaptureAgent(
-            instructions=build_lead_capture_prompt(self.userdata.language),
+            instructions=instructions,
             room=self.room,
             chat_ctx=self.chat_ctx,
             userdata=self.userdata,
@@ -190,10 +199,12 @@ Stored in `UserData.intent_score`.
 | `ar` | Arabic | |
 
 **Architecture:**
-- Single English base prompt in `prompt/main_agent.py`
-- Language directive injected at prompt build time for non-English
-- Greeting templates stored in `config/languages.py`
+- English-only base prompts in `prompt/main_agent.py` and `prompt/workflow.py`
+- Native-language directives in `prompt/language.py` (written IN the target language)
+- Combined via `build_prompt_with_language(base, lang)` — directive prepended at TOP
 - Language read from `participant.attributes["user.language"]` at session start
+- Mid-conversation switching via `LanguageSwitchHandler` (listens on `"language"` data channel topic)
+- On switch: rebuilds full prompt (directive at TOP + English base) and calls `update_instructions()`
 
 ### Frontend Protocol
 
@@ -205,6 +216,7 @@ Stored in `UserData.intent_score`.
 | `trigger` | `{"share_contact_yes": "Yes", "share_contact_no": "No"}` | Contact sharing buttons |
 | `trigger` | `{"new_conversation": "New Conversation"}` | New conversation button |
 | `clean` | `{"clean": true}` | Clear product images from frontend |
+| `language` | `{"language": "fr"}` | Switch agent language (frontend → agent) |
 
 ### Webhook Integration
 
@@ -254,7 +266,10 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 
 ## Recent Changes (Feb 2026)
 
-- **Simplified prompts**: Removed `_LANG` dictionaries, now using single English base + language directive
+- **Language switching fixed**: Native-language directives prepended at TOP of prompt for Realtime model compliance
+- **Prompt architecture**: English-only base prompts + separate `prompt/language.py` for language directives
+- **`build_prompt_with_language()`**: Single function to combine base prompt + language directive at TOP
+- **`LanguageSwitchHandler`**: Rebuilds full prompt on language change, detects agent type for correct base
 - **Silent tools**: Tools return `None` instead of strings to avoid robotic messages
 - **Natural conversation**: Prompts guide rather than force rigid step sequences
 - **Consent flow**: Explicit YES/NO consent buttons after collecting contact info
@@ -269,4 +284,15 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 - **Tool return values**: Return `None` for silent tools, return string only if LLM should speak
 - **Seamless handoffs**: Return just the Agent instance for silent handoff
 - **`chat_ctx`**: Always pass `chat_ctx=self.chat_ctx` when creating handoff agents
+- **`update_instructions()`**: Sends `session.update` to OpenAI Realtime API — language directive must be at TOP of prompt for the model to follow it
+- **`generate_reply(instructions=...)`**: Triggers immediate speech — do NOT use for silent language switching
 - **Console mode**: `participant.attributes` is a MagicMock in console mode
+
+## Language Switching (Important)
+
+Language directives MUST be:
+1. **At the TOP** of the system prompt (highest salience position for OpenAI Realtime)
+2. **Written in the target language** (German directive in German, etc.) — English-only directives are ignored by the model
+3. **Strong and emphatic** — UPPERCASE, "HIGHEST PRIORITY", "OVERRIDES all previous"
+
+The `prompt/language.py` file is the single source of truth. Never add language directives to base prompts. Always use `build_prompt_with_language(base, language)` to compose.

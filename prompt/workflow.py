@@ -3,45 +3,23 @@ Sub-agent prompt for the lead capture flow.
 
 The lead capture agent handles: contact collection, consent, goodbye, and restart.
 Qualification is handled by the main agent (EngageIQAssistant).
-"""
 
-from config.languages import LANGUAGES
-
-
-def _build_language_directive(language: str) -> str:
-    """Build a language directive for non-English languages."""
-    if language == "en":
-        return ""
-
-    lang_info = LANGUAGES.get(language, {})
-    english_name = lang_info.get("english_name", language.upper())
-    native_name = lang_info.get("name", language.upper())
-    formality = lang_info.get("formality_note", "Use appropriate formality.")
-
-    return f"""
-
-# Language Instruction
-
-You must respond in {english_name} ({native_name}) for all responses.
-{formality}
+Base prompt is always English. Language directives are handled by prompt/language.py
+and prepended at the TOP by callers using build_prompt_with_language().
 """
 
 
-def build_lead_capture_prompt(language: str) -> str:
-    """Sub-agent prompt for collecting contact details, getting consent, and closing.
+def build_lead_capture_prompt() -> str:
+    """English-only base prompt for collecting contact details, getting consent, and closing.
 
-    This agent handles everything after the main agent hands off:
-    collect info → ask consent → save or discard → goodbye → restart.
-
-    Args:
-        language: ISO code (e.g., "en", "de").
+    Language directives are NOT included here. Callers should use
+    build_prompt_with_language() from prompt/language.py to prepend
+    the language directive at the TOP of this base prompt.
 
     Returns:
-        Complete sub-agent system prompt.
+        English-only base sub-agent system prompt.
     """
-    language_directive = _build_language_directive(language)
-
-    return f"""# Role
+    return """# Role
 
 You are a Digital Concierge collecting contact details from an interested trade-show visitor.
 The visitor has already been qualified, shown interest, and AGREED to share their contact details.
@@ -79,5 +57,4 @@ Do NOT re-ask for permission to collect — they already said yes. But you MUST 
 4. ALWAYS ask for explicit consent before finalizing the lead.
 5. When YES/NO buttons appear, visitors can click or say the word — treat both the same.
 6. Keep responses to 1-2 sentences. Don't explain why you need the data.
-{language_directive}
 """
