@@ -104,7 +104,8 @@ class LeadCaptureAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Partial lead webhook failed: {e}")
 
-        return None  # silent — agent asks for consent from prompt guidance
+        hint = lang_hint(self.userdata.language)
+        return f"Info received. Now ask: 'May we use your contact information to follow up?' YES/NO buttons are on screen. {hint}"
 
     @function_tool
     async def confirm_consent(self, context: RunContext_T, consent: bool):
@@ -174,7 +175,8 @@ class LeadCaptureAgent(BaseAgent):
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
-            return None  # silent — agent says thank you and goodbye from prompt guidance
+            hint = lang_hint(self.userdata.language)
+            return f"Lead saved! Thank them warmly and say goodbye. Mention the team will follow up. {hint}"
 
         else:
             # M6: Send webhook FIRST while data is still available
@@ -206,7 +208,8 @@ class LeadCaptureAgent(BaseAgent):
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
-            return None  # silent — agent says goodbye from prompt guidance
+            hint = lang_hint(self.userdata.language)
+            return f"Data discarded. Respect their choice — say a warm goodbye, no pressure. {hint}"
 
     @function_tool
     async def visitor_declines_contact(self, context: RunContext_T):
@@ -225,7 +228,8 @@ class LeadCaptureAgent(BaseAgent):
         except Exception as e:
             logger.error(f"New conversation button failed: {e}")
 
-        return None  # silent — agent says goodbye from prompt guidance
+        hint = lang_hint(self.userdata.language)
+        return f"Say a warm goodbye. Wish them a great time at EuroShop. {hint}"
 
     @function_tool
     async def restart_session(self, context: RunContext_T):

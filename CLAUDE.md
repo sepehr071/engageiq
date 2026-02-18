@@ -95,7 +95,7 @@ The main agent greets, has natural conversation, detects the visitor's role when
 
 - **LLM lives on `AgentSession`**, not on individual agents. Agents only provide `instructions`.
 - **Both agents extend `BaseAgent`**: `EngageIQAssistant` and `LeadCaptureAgent` both inherit from `BaseAgent` (`agents/base.py`), which provides `_safe_reply()` (retry + fallback) and `transcription_node` (streams text to frontend).
-- **Silent tools**: Most tools return `None` (silent — no LLM reply generated). Only `check_intent_and_proceed` returns a string (score-based branching). Per LiveKit docs: "Return `None` to complete the tool silently without requiring a reply from the LLM."
+- **Tool return values**: Most tools return short directive instruction strings so the Realtime model generates a response. Only background tools (`save_conversation_summary`, `show_client`) return `None` (truly silent). Instructions are kept SHORT and directive to minimize double-message risk with the Realtime model.
 - **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
 - **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5, threshold ≥3 for lead capture
 - **Client images**: `show_client("core"/"dfki")` sends individual client images when discussed; `present_engageiq` sends all images during formal presentation. `clients_shown` in UserData prevents re-sending.
@@ -189,14 +189,14 @@ Stored in `UserData.intent_score`.
 
 | Tool | Purpose | Returns |
 |------|---------|---------|
-| `detect_visitor_role` | Store visitor's role | Instruction string |
-| `show_client` | Show individual client image+URL on frontend | `None` (silent) |
-| `present_engageiq` | Present EngageIQ with all client images | Presentation overlay |
-| `collect_challenge` | Store visitor's challenge answer | Instruction string |
-| `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions |
-| `save_conversation_summary` | Save summary for webhook | Instruction string |
+| `detect_visitor_role` | Store visitor's role | Short instruction to continue |
+| `show_client` | Show individual client image+URL on frontend | `None` (silent — agent is already talking) |
+| `present_engageiq` | Present EngageIQ with all client images | Instruction to present verbally |
+| `collect_challenge` | Store visitor's challenge answer | Instruction to respond + check intent |
+| `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions based on score |
+| `save_conversation_summary` | Save summary for webhook | `None` (silent) |
 | `restart_session` | Save history + webhook, restart conversation | New agent |
-| `connect_to_lead_capture` | Handoff or goodbye, send clean topic | New agent or instruction string |
+| `connect_to_lead_capture` | Handoff or goodbye, send clean topic | New agent (true) or goodbye instruction (false) |
 
 ### Consent Flow (Lead Capture)
 
@@ -358,8 +358,8 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Simplified tool returns**: `check_intent_and_proceed` returns concise instructions instead of re-pitching EngageIQ
 - **Self-introduction variety**: Self-intro examples vary — some mention EngageIQ, some don't, avoiding robotic bridges
 - **Answer-the-question rule**: Agent doesn't redirect to questions the visitor already answered
-- **Silent tools (no double messages)**: All side-effect tools (`present_engageiq`, `detect_visitor_role`, `collect_challenge`, `save_conversation_summary`, `show_client`, `store_partial_contact_info`, `confirm_consent`, `visitor_declines_contact`) return `None`. Only `check_intent_and_proceed` returns a string (score-based branching). Prevents the Realtime model from generating two separate responses per tool call.
-- **One-message-per-turn rule**: Prompt rule 17 tells agent never to announce tool calls ("let me show you", "one moment") — call silently and respond in same message
+- **Tool return values (balanced approach)**: Most tools return short directive instruction strings to ensure the Realtime model responds after tool calls. Only background tools (`save_conversation_summary`, `show_client`) return `None` (truly silent). Instructions are kept SHORT and directive to minimize double-message risk. Previous all-`None` approach caused complete agent silence after tool calls.
+- **One-message-per-turn rule**: Prompt rule 17 tells agent to follow tool instructions and respond in one message — never announce tool calls ("let me show you", "one moment")
 - **Temperature 0.7**: Increased from 0.6 for more varied responses
 
 ## LiveKit SDK Patterns (Critical)

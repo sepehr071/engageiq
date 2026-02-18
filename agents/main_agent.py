@@ -104,7 +104,8 @@ class EngageIQAssistant(BaseAgent):
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
-        return None  # silent — agent continues talking
+        hint = lang_hint(self.userdata.language)
+        return f"Role noted. Continue the conversation naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -222,7 +223,12 @@ class EngageIQAssistant(BaseAgent):
         # Send EngageIQ + client images to frontend
         await self._send_product_to_frontend("engageiq")
 
-        return None  # silent — agent presents EngageIQ from prompt knowledge
+        hint = lang_hint(self.userdata.language)
+        role = self.userdata.visitor_role
+        if role:
+            return f"Images are on their screen. Present EngageIQ now — connect it to their role as {role}. Keep it to 2-3 sentences. {hint}"
+        else:
+            return f"Images are on their screen. Present EngageIQ now — explain what it does and that they're experiencing it right now. Keep it to 2-3 sentences. {hint}"
 
     async def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
@@ -278,7 +284,8 @@ class EngageIQAssistant(BaseAgent):
         else:
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
-        return None  # silent — agent responds naturally, then calls check_intent_and_proceed
+        hint = lang_hint(self.userdata.language)
+        return f"Challenge noted. Respond with empathy, then call check_intent_and_proceed. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTENT CHECK & RE-ENGAGEMENT
@@ -366,5 +373,6 @@ Keep the conversation natural — ask about their situation, listen genuinely. I
             )
         else:
             # M7: Let on_shutdown handle save/webhook — visitor may continue talking
-            return None  # silent — agent says goodbye from prompt guidance
+            hint = lang_hint(self.userdata.language)
+            return f"Say a warm, brief goodbye. Wish them a great time at EuroShop. {hint}"
 
