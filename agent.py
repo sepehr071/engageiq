@@ -22,6 +22,7 @@ from utils.webhook import send_session_webhook
 from config.settings import RT_MODEL, LLM_TEMPERATURE
 from config import DEFAULT_LANGUAGE
 import asyncio
+import json
 import logging
 import os
 from datetime import datetime
@@ -145,8 +146,10 @@ async def entrypoint(ctx: agents.JobContext):
     except Exception as e:
         logger.critical(f"Session start failed: {e}")
         try:
+            from config.languages import get_fallback_message
+            error_msg = get_fallback_message(language, "technical_error")
             await ctx.room.local_participant.send_text(
-                '{"agent_response": "Sorry, I\'m having a technical issue. Please visit us directly at our booth."}',
+                json.dumps({"agent_response": error_msg}),
                 topic="message",
             )
         except Exception:

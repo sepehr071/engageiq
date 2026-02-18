@@ -14,7 +14,8 @@ from livekit.agents import Agent, function_tool, ModelSettings
 from core.session_state import UserData, RunContext_T
 from config.products import PRODUCTS, get_role_hook
 from prompt.main_agent import build_main_prompt, build_greeting, build_engageiq_presentation
-from prompt.language import build_prompt_with_language
+from prompt.language import build_prompt_with_language, lang_hint
+from config.languages import get_language_config, get_button_labels
 from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
 
@@ -113,7 +114,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
-        return "Role noted. Continue the conversation naturally — when the moment feels right, present EngageIQ by calling present_engageiq."
+        return f"Role noted. Continue the conversation naturally — when the moment feels right, present EngageIQ by calling present_engageiq. {lang_hint(self.userdata.language)}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -127,7 +128,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return "Summary saved. Proceed with the next step in the conversation."
+        return f"Summary saved. Proceed with the next step in the conversation. {lang_hint(self.userdata.language)}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -174,7 +175,7 @@ class EngageIQAssistant(Agent):
         if presentation:
             return presentation
 
-        return "Present EngageIQ and mention clients like CORE and DFKI who use it. Personalize to their role."
+        return f"Present EngageIQ and mention clients like CORE and DFKI who use it. Personalize to their role. {lang_hint(self.userdata.language)}"
 
     def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
@@ -232,7 +233,7 @@ class EngageIQAssistant(Agent):
         else:
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
-        return "Challenge noted. Now call check_intent_and_proceed to determine the next step based on visitor engagement."
+        return f"Challenge noted. Now call check_intent_and_proceed to determine the next step based on visitor engagement. {lang_hint(self.userdata.language)}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTENT CHECK & RE-ENGAGEMENT
@@ -249,9 +250,10 @@ class EngageIQAssistant(Agent):
 
         if score >= 3:
             # Send YES/NO contact sharing buttons to frontend
+            labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"share_contact_yes": "Yes", "share_contact_no": "No"}),
+                    json.dumps({"share_contact_yes": labels["yes"], "share_contact_no": labels["no"]}),
                     topic="trigger",
                 )
                 logger.info("Sent contact sharing buttons to frontend")
@@ -259,7 +261,8 @@ class EngageIQAssistant(Agent):
                 logger.error(f"Failed to send contact sharing buttons: {e}")
 
             # Good signal - have more conversation before asking for contact
-            return """GOOD_SIGNAL: The visitor seems interested. Before asking for contact:
+            hint = lang_hint(self.userdata.language)
+            return f"""GOOD_SIGNAL: The visitor seems interested. Before asking for contact:
 
 1. Acknowledge their challenge briefly with empathy
 2. Share 1-2 specific ways EngageIQ can help their business engage customers better (e.g., "For someone in your role, this means you could see which visitors are actually interested, not just who clicks")
@@ -267,7 +270,9 @@ class EngageIQAssistant(Agent):
 
 YES/NO buttons have been sent to the frontend. The visitor can click them or say Yes/No verbally.
 If they say 'Yes' (verbally or button), call connect_to_lead_capture with confirm=true.
-If they say 'No' (verbally or button), call connect_to_lead_capture with confirm=false."""
+If they say 'No' (verbally or button), call connect_to_lead_capture with confirm=false.
+
+{hint}"""
         else:
             # Continue conversation - don't rush
             return f"""CONTINUE_CONVERSATION: Score is {score}/5. Don't rush to ask for contact.
@@ -277,7 +282,9 @@ Try to learn more about their situation:
 - Share a brief example of how EngageIQ helped a similar company
 - Keep the conversation natural, not salesy
 
-If they show more interest, explain how EngageIQ helps engage customers and offer to have our team contact them. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false."""
+If they show more interest, explain how EngageIQ helps engage customers and offer to have our team contact them. If they remain disengaged, say a warm goodbye and call connect_to_lead_capture with confirm=false.
+
+{lang_hint(self.userdata.language)}"""
 
     # ══════════════════════════════════════════════════════════════════════════
     # HANDOFF TO LEAD CAPTURE
@@ -330,7 +337,7 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
             except Exception as e:
                 logger.error(f"Failed to save conversation on decline: {e}")
 
-            return "No problem at all. Say a warm goodbye in the visitor's language, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later."
+            return f"No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later. {lang_hint(self.userdata.language)}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # TRANSCRIPTION — streams agent text to frontend

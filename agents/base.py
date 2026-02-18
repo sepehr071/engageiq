@@ -12,16 +12,15 @@ import logging
 from typing import AsyncIterable
 from livekit.agents import Agent, ModelSettings
 from core.session_state import UserData
+from config.languages import DEFAULT_LANGUAGE, get_fallback_message
 
 logger = logging.getLogger(__name__)
 
 REPLY_MAX_RETRIES = 3
 REPLY_BACKOFF = 1.0
 
-PATIENCE_FALLBACK = "One moment please..."
 
-
-async def safe_generate_reply(session, room, instructions: str, retries: int = REPLY_MAX_RETRIES) -> bool:
+async def safe_generate_reply(session, room, instructions: str, language: str = DEFAULT_LANGUAGE, retries: int = REPLY_MAX_RETRIES) -> bool:
     """Retry session.generate_reply up to `retries` times with backoff.
     On total failure, sends a polite fallback text to the frontend.
     Returns True on success, False on total failure.
@@ -36,9 +35,10 @@ async def safe_generate_reply(session, room, instructions: str, retries: int = R
                 await asyncio.sleep(REPLY_BACKOFF * (attempt + 1))
 
     logger.error(f"generate_reply failed after {retries} attempts")
+    fallback = get_fallback_message(language, "patience")
     try:
         await room.local_participant.send_text(
-            json.dumps({"agent_response": PATIENCE_FALLBACK}),
+            json.dumps({"agent_response": fallback}),
             topic="message",
         )
     except Exception:
@@ -75,7 +75,8 @@ class BaseAgent(Agent):
 
     async def _safe_reply(self, instructions: str) -> bool:
         """Convenience wrapper — calls safe_generate_reply with this agent's session/room."""
-        return await safe_generate_reply(self.session, self.room, instructions)
+        language = self.userdata.language if hasattr(self, 'userdata') else DEFAULT_LANGUAGE
+        return await safe_generate_reply(self.session, self.room, instructions, language=language)
 
     async def transcription_node(self, text: AsyncIterable[str], model_settings: ModelSettings) -> AsyncIterable[str]:
         agent_response = ""

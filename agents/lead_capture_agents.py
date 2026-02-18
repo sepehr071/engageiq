@@ -14,6 +14,8 @@ from core.lead_storage import save_lead
 from utils.smtp import is_valid_email_syntax, send_lead_notification
 from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
+from prompt.language import lang_hint
+from config.languages import get_language_config, get_button_labels
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +26,18 @@ class LeadCaptureAgent(BaseAgent):
     async def on_enter(self):
         """Speak immediately on entry — visitor already agreed, go straight to collecting."""
         logger.info("LeadCaptureAgent on_enter")
+        language = self.userdata.language
+        lang_info = get_language_config(language)
+        english_name = lang_info.get("english_name", "German")
+        formality_note = lang_info.get("formality_note", "Use appropriate formality.")
+
+        if language == "en":
+            lang_instruction = "Respond in English."
+        else:
+            lang_instruction = f"Respond in {english_name}. {formality_note}"
+
         await self.session.generate_reply(
-            instructions="The visitor already agreed to share their contact details. Thank them briefly and ask for their name and email to get started. Be warm and concise — one sentence."
+            instructions=f"The visitor already agreed to share their contact details. Thank them briefly and ask for their name and email to get started. Be warm and concise — one sentence. {lang_instruction}"
         )
 
     @function_tool
@@ -36,7 +48,7 @@ class LeadCaptureAgent(BaseAgent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return "Summary saved. Now ask for the visitor's name and email to collect their contact details."
+        return f"Summary saved. Now ask for the visitor's name and email to collect their contact details. {lang_hint(self.userdata.language)}"
 
     @function_tool
     async def store_partial_contact_info(
@@ -62,7 +74,7 @@ class LeadCaptureAgent(BaseAgent):
         # Validate email
         if not is_valid_email_syntax(email):
             logger.info(f"Invalid email: {email}")
-            return "That email doesn't seem right. Ask the visitor to double-check it."
+            return f"That email doesn't seem right. Ask the visitor to double-check it. {lang_hint(self.userdata.language)}"
 
         # Store as PARTIAL contact info (not yet finalized)
         self.userdata.partial_name = name.strip()
@@ -72,9 +84,10 @@ class LeadCaptureAgent(BaseAgent):
         self.userdata.partial_phone = phone.strip() if phone else None
 
         # Send YES/NO consent buttons to frontend
+        labels = get_button_labels(self.userdata.language)
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"consent_yes": "Yes", "consent_no": "No"}),
+                json.dumps({"consent_yes": labels["yes"], "consent_no": labels["no"]}),
                 topic="trigger",
             )
             logger.info("Sent consent buttons to frontend")
@@ -82,7 +95,7 @@ class LeadCaptureAgent(BaseAgent):
             logger.error(f"Failed to send consent buttons: {e}")
 
         # Return instruction to ask for consent
-        return "Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?' The visitor can click Yes or No buttons, or say it verbally. If they say 'Yes', call confirm_consent with consent=true. If they say 'No', call confirm_consent with consent=false."
+        return f"Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?' The visitor can click Yes or No buttons, or say it verbally. If they say 'Yes', call confirm_consent with consent=true. If they say 'No', call confirm_consent with consent=false. {lang_hint(self.userdata.language)}"
 
     @function_tool
     async def confirm_consent(self, context: RunContext_T, consent: bool):
@@ -142,16 +155,17 @@ class LeadCaptureAgent(BaseAgent):
             self.userdata._history_saved = True
 
             # Send "new conversation" button to frontend
+            labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"new_conversation": "New Conversation"}),
+                    json.dumps({"new_conversation": labels["new_conversation"]}),
                     topic="trigger",
                 )
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
             # Return confirmation — LLM will generate a natural goodbye
-            return "Contact details saved with consent. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop."
+            return f"Contact details saved with consent. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop. {lang_hint(self.userdata.language)}"
 
         else:
             # Clear partial data (visitor declined)
@@ -174,15 +188,16 @@ class LeadCaptureAgent(BaseAgent):
             self.userdata._history_saved = True
 
             # Send "new conversation" button
+            labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"new_conversation": "New Conversation"}),
+                    json.dumps({"new_conversation": labels["new_conversation"]}),
                     topic="trigger",
                 )
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
-            return "Visitor declined consent. Data has been discarded. Say a warm goodbye and wish them a great rest of EuroShop."
+            return f"Visitor declined consent. Data has been discarded. Say a warm goodbye and wish them a great rest of EuroShop. {lang_hint(self.userdata.language)}"
 
     @function_tool
     async def visitor_declines_contact(self, context: RunContext_T):
@@ -192,16 +207,17 @@ class LeadCaptureAgent(BaseAgent):
         logger.info("Visitor declined contact info")
 
         # Send "new conversation" button
+        labels = get_button_labels(self.userdata.language)
         try:
             await self.room.local_participant.send_text(
-                json.dumps({"new_conversation": "New Conversation"}),
+                json.dumps({"new_conversation": labels["new_conversation"]}),
                 topic="trigger",
             )
         except Exception as e:
             logger.error(f"New conversation button failed: {e}")
 
         # Return farewell — LLM will generate a natural goodbye
-        return "No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later."
+        return f"No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later. {lang_hint(self.userdata.language)}"
 
     @function_tool
     async def restart_session(self, context: RunContext_T):

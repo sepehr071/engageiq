@@ -165,6 +165,22 @@ LANGUAGE REQUIREMENTS:
 IMPORTANT: Even if the previous conversation was in another language, you MUST respond in {english_name} NOW. Ignore all previous language instructions."""
 
 
+def lang_hint(language: str) -> str:
+    """Return a short English-language reminder for tool return strings.
+
+    This is an instruction to the LLM (not user-facing text), so it stays in English.
+    The system prompt's native-language directive is the primary language mechanism;
+    this hint reinforces compliance after tool calls.
+    """
+    lang_config = LANGUAGES.get(language, LANGUAGES.get(DEFAULT_LANGUAGE, {}))
+    english_name = lang_config.get("english_name", "German")
+    formality = lang_config.get("formality", "")
+
+    if language == "en":
+        return "Respond in English."
+    return f"Respond in {english_name} (formal {formality})."
+
+
 def build_prompt_with_language(base_prompt: str, language: str) -> str:
     """Combine a base prompt with a language directive at the TOP.
 
