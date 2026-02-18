@@ -11,7 +11,7 @@ LiveKit voice agent for Ayand AI's EuroShop 2026 booth. Visitors scan a QR code,
 - **Runtime:** Python 3.9 (conda env `engage`)
 - **Voice Framework:** LiveKit Agents SDK (`livekit-agents 1.4.1`)
 - **Voice Model:** OpenAI Realtime API (`gpt-realtime-mini-2025-10-06`)
-- **Model Temperature:** `0.6` (configured in `config/settings.py`)
+- **Model Temperature:** `0.7` (configured in `config/settings.py`)
 - **No RAG, no search, no Flask** — all product knowledge is baked into prompts
 - **Note:** Noise cancellation (BVC) requires LiveKit Cloud paid plan — currently disabled
 
@@ -95,7 +95,7 @@ The main agent greets, has natural conversation, detects the visitor's role when
 
 - **LLM lives on `AgentSession`**, not on individual agents. Agents only provide `instructions`.
 - **Both agents extend `BaseAgent`**: `EngageIQAssistant` and `LeadCaptureAgent` both inherit from `BaseAgent` (`agents/base.py`), which provides `_safe_reply()` (retry + fallback) and `transcription_node` (streams text to frontend).
-- **Tool return strings**: Tools return instruction strings to guide the LLM's next action. Only tools that should be truly silent return `None`.
+- **Silent tools**: Most tools return `None` (silent — no LLM reply generated). Only `check_intent_and_proceed` returns a string (score-based branching). Per LiveKit docs: "Return `None` to complete the tool silently without requiring a reply from the LLM."
 - **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
 - **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5, threshold ≥3 for lead capture
 - **Client images**: `show_client("core"/"dfki")` sends individual client images when discussed; `present_engageiq` sends all images during formal presentation. `clients_shown` in UserData prevents re-sending.
@@ -316,7 +316,7 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Consent flow**: Explicit YES/NO consent buttons after collecting contact info
 - **Partial leads**: Contact info saved even if session closes before consent
 - **10 languages**: German (default), English, Dutch, French, Spanish, Italian, Portuguese, Polish, Turkish, Arabic
-- **Temperature**: Set to 0.6 for more consistent responses
+- **Temperature**: Set to 0.7 for more natural, varied responses
 - **Frontend clean**: Product images cleared when entering lead capture
 - **Lead status**: Webhook `status` field: `hot_lead`/`warm_lead`/`declined`/`no_contact`
 - **Webhook on email**: Webhook fires immediately when email is collected (partial lead), not just on session end
@@ -358,6 +358,9 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Simplified tool returns**: `check_intent_and_proceed` returns concise instructions instead of re-pitching EngageIQ
 - **Self-introduction variety**: Self-intro examples vary — some mention EngageIQ, some don't, avoiding robotic bridges
 - **Answer-the-question rule**: Agent doesn't redirect to questions the visitor already answered
+- **Silent tools (no double messages)**: All side-effect tools (`present_engageiq`, `detect_visitor_role`, `collect_challenge`, `save_conversation_summary`, `show_client`, `store_partial_contact_info`, `confirm_consent`, `visitor_declines_contact`) return `None`. Only `check_intent_and_proceed` returns a string (score-based branching). Prevents the Realtime model from generating two separate responses per tool call.
+- **One-message-per-turn rule**: Prompt rule 17 tells agent never to announce tool calls ("let me show you", "one moment") — call silently and respond in same message
+- **Temperature 0.7**: Increased from 0.6 for more varied responses
 
 ## LiveKit SDK Patterns (Critical)
 

@@ -49,7 +49,7 @@ class LeadCaptureAgent(BaseAgent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return f"Summary saved. Now ask for the visitor's name and email to collect their contact details. {lang_hint(self.userdata.language)}"
+        return None  # silent
 
     @function_tool
     async def store_partial_contact_info(
@@ -104,8 +104,7 @@ class LeadCaptureAgent(BaseAgent):
         except Exception as e:
             logger.error(f"Partial lead webhook failed: {e}")
 
-        # Return instruction to ask for consent
-        return f"Contact details received. Now ask for explicit consent: 'May we use your contact information to reach out to you about EngageIQ?' The visitor can click Yes or No buttons, or say it verbally. If they say 'Yes', call confirm_consent with consent=true. If they say 'No', call confirm_consent with consent=false. {lang_hint(self.userdata.language)}"
+        return None  # silent — agent asks for consent from prompt guidance
 
     @function_tool
     async def confirm_consent(self, context: RunContext_T, consent: bool):
@@ -175,8 +174,7 @@ class LeadCaptureAgent(BaseAgent):
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
-            # Return confirmation — LLM will generate a natural goodbye
-            return f"Contact details saved with consent. Thank the visitor warmly, tell them the team will be in touch soon, and wish them a great rest of EuroShop. {lang_hint(self.userdata.language)}"
+            return None  # silent — agent says thank you and goodbye from prompt guidance
 
         else:
             # M6: Send webhook FIRST while data is still available
@@ -208,7 +206,7 @@ class LeadCaptureAgent(BaseAgent):
             except Exception as e:
                 logger.error(f"New conversation button failed: {e}")
 
-            return f"Visitor declined consent. Data has been discarded. Say a warm goodbye and wish them a great rest of EuroShop. {lang_hint(self.userdata.language)}"
+            return None  # silent — agent says goodbye from prompt guidance
 
     @function_tool
     async def visitor_declines_contact(self, context: RunContext_T):
@@ -227,8 +225,7 @@ class LeadCaptureAgent(BaseAgent):
         except Exception as e:
             logger.error(f"New conversation button failed: {e}")
 
-        # Return farewell — LLM will generate a natural goodbye
-        return f"No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later. {lang_hint(self.userdata.language)}"
+        return None  # silent — agent says goodbye from prompt guidance
 
     @function_tool
     async def restart_session(self, context: RunContext_T):

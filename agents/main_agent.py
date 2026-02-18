@@ -11,8 +11,8 @@ from livekit.agents import function_tool
 from agents.base import BaseAgent
 
 from core.session_state import UserData, RunContext_T
-from config.products import PRODUCTS, get_role_hook
-from prompt.main_agent import build_main_prompt, build_greeting, build_engageiq_presentation
+from config.products import PRODUCTS
+from prompt.main_agent import build_main_prompt, build_greeting
 from prompt.language import build_prompt_with_language, lang_hint
 from config.languages import get_language_config, get_button_labels
 from utils.history import save_conversation_to_file
@@ -104,7 +104,7 @@ class EngageIQAssistant(BaseAgent):
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
-        return f"Role noted. Continue the conversation naturally — when the moment feels right, present EngageIQ by calling present_engageiq. {lang_hint(self.userdata.language)}"
+        return None  # silent — agent continues talking
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -118,7 +118,7 @@ class EngageIQAssistant(BaseAgent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        return f"Summary saved. Proceed with the next step in the conversation. {lang_hint(self.userdata.language)}"
+        return None  # silent
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -222,16 +222,7 @@ class EngageIQAssistant(BaseAgent):
         # Send EngageIQ + client images to frontend
         await self._send_product_to_frontend("engageiq")
 
-        # Use role-based presentation
-        presentation = build_engageiq_presentation(
-            self.userdata.language,
-            self._product_data,
-            visitor_role=self.userdata.visitor_role
-        )
-        if presentation:
-            return presentation
-
-        return f"Present EngageIQ and mention clients like CORE and DFKI who use it. Personalize to their role. {lang_hint(self.userdata.language)}"
+        return None  # silent — agent presents EngageIQ from prompt knowledge
 
     async def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
@@ -287,7 +278,7 @@ class EngageIQAssistant(BaseAgent):
         else:
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
-        return f"Challenge noted. Now call check_intent_and_proceed to determine the next step based on visitor engagement. {lang_hint(self.userdata.language)}"
+        return None  # silent — agent responds naturally, then calls check_intent_and_proceed
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTENT CHECK & RE-ENGAGEMENT
@@ -375,5 +366,5 @@ Keep the conversation natural — ask about their situation, listen genuinely. I
             )
         else:
             # M7: Let on_shutdown handle save/webhook — visitor may continue talking
-            return f"No problem at all. Say a warm goodbye, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later. {lang_hint(self.userdata.language)}"
+            return None  # silent — agent says goodbye from prompt guidance
 
