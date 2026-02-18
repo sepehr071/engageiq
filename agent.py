@@ -21,6 +21,7 @@ from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
 from config.settings import RT_MODEL, LLM_TEMPERATURE
 from config import DEFAULT_LANGUAGE
+import asyncio
 import logging
 import os
 from datetime import datetime
@@ -121,14 +122,13 @@ async def entrypoint(ctx: agents.JobContext):
 
     ctx.add_shutdown_callback(on_shutdown)
 
-    # Listen for language changes (visitor switches language in frontend dropdown)
+    # Listen for language changes via participant attributes (backup for data channel)
     @ctx.room.on("participant_attributes_changed")
     def on_attributes_changed(changed_attrs: dict[str, str], p):
         if p == participant and "user.language" in changed_attrs:
             p_attrs = p.attributes if isinstance(p.attributes, dict) else {}
             new_lang = p_attrs.get("user.language", DEFAULT_LANGUAGE)
-            session.userdata.language = new_lang
-            logger.info(f"Language changed to: {new_lang}")
+            asyncio.create_task(language_handler._handle_language_change(new_lang))
 
     # Start the main agent
     # Note: noise_cancellation.BVC() requires LiveKit Cloud paid plan
