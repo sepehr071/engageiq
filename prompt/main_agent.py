@@ -201,20 +201,19 @@ def build_greeting(language: str) -> str:
     Returns:
         Instruction string telling the agent how to greet.
     """
-    lang_info = LANGUAGES.get(language, LANGUAGES.get("de"))  # Default to German
+    lang_info = LANGUAGES.get(language, LANGUAGES.get("de"))
     english_name = lang_info.get("english_name", "German")
-    native_name = lang_info.get("name", "Deutsch")
     formality_note = lang_info.get("formality_note", "Use appropriate formality.")
 
-    # Use the greeting template from language config
-    greeting = lang_info.get("greeting_template", "Welcome to Ayand AI at EuroShop! What brings you to our booth today?")
+    if language == "en":
+        lang_instruction = "Respond in English."
+    else:
+        lang_instruction = f"Respond in {english_name}. {formality_note}"
 
-    return f"""Greet the visitor:
-"{greeting}"
+    return f"""Greet the visitor warmly. Mention you're from Ayand AI at EuroShop 2026. Ask what brings them to the booth today.
 
 Rules:
-- Respond in {english_name} ({native_name})
-- {formality_note}
+- {lang_instruction}
 - Keep it warm but concise — one short sentence.
 - Do NOT call any tools during greeting. Just greet naturally.
 """
@@ -247,11 +246,13 @@ def build_engageiq_presentation(language: str, product_data: dict, visitor_role:
     value_hook = role_config.get("value_hook", product.get("value_proposition", ""))
     challenge_example = role_config.get("challenge_example", "What's your biggest challenge with understanding your customer demand?")
 
-    # Language-specific instruction
-    if language == "de":
-        lang_note = "Antworte auf Deutsch."
-    else:
+    # Language instruction
+    lang_info = LANGUAGES.get(language, LANGUAGES.get("de"))
+    english_name = lang_info.get("english_name", "English")
+    if language == "en":
         lang_note = "Respond in English."
+    else:
+        lang_note = f"Respond in {english_name}."
 
     return f"""# Present EngageIQ
 

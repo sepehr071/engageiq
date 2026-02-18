@@ -129,32 +129,6 @@ class LanguageSwitchHandler:
             logger.error(f"Failed to update agent instructions: {e}")
 
     def _build_language_override(self, language: str) -> str:
-        """Build a strong language directive to prepend to instructions.
-
-        This creates a highly emphasized instruction that overrides all previous
-        language settings and forces the LLM to respond in the specified language.
-
-        Args:
-            language: The target language code
-
-        Returns:
-            A strong language directive string
-        """
-        from config.languages import LANGUAGES, DEFAULT_LANGUAGE
-
-        lang_config = LANGUAGES.get(language, LANGUAGES.get(DEFAULT_LANGUAGE, {}))
-        english_name = lang_config.get("english_name", "English")
-        native_name = lang_config.get("name", "English")
-        formality_note = lang_config.get("formality_note", "Use professional tone")
-
-        return f"""## CRITICAL LANGUAGE INSTRUCTION - HIGHEST PRIORITY
-
-YOU MUST RESPOND IN {english_name.upper()} ({native_name}) FROM NOW ON.
-
-This instruction OVERRIDES all previous language instructions.
-- Speak ONLY in natural, fluent {english_name}
-- {formality_note}
-- Every word you speak must be in {english_name}
-- Continue the conversation naturally in {english_name}
-
-IMPORTANT: Even if the conversation was in another language, you MUST respond in {english_name} from this moment forward. Do not acknowledge the language change - just continue speaking in {english_name}."""
+        """Build a language directive to prepend to instructions."""
+        from prompt.language import get_language_directive
+        return get_language_directive(language)

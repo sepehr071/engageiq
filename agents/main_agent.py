@@ -111,7 +111,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip() if role else None
-        # Return None to be silent - don't announce that role was saved
+        return "Role noted. Continue the conversation naturally — when the moment feels right, present EngageIQ by calling present_engageiq."
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -125,7 +125,7 @@ class EngageIQAssistant(Agent):
         """
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
-        # Return None to be silent - don't say "summary saved" out loud
+        return "Summary saved. Proceed with the next step in the conversation."
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -230,7 +230,7 @@ class EngageIQAssistant(Agent):
         else:
             self.userdata.intent_score += 3
             logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
-        # Return None to be silent - continue natural conversation
+        return "Challenge noted. Now call check_intent_and_proceed to determine the next step based on visitor engagement."
 
     # ══════════════════════════════════════════════════════════════════════════
     # INTENT CHECK & RE-ENGAGEMENT
@@ -326,11 +326,7 @@ If they show more interest, explain how EngageIQ helps engage customers and offe
             except Exception as e:
                 logger.error(f"Failed to save conversation on decline: {e}")
 
-            lang = self.userdata.language
-            if lang == "de":
-                return "Kein Problem. Sie sind jederzeit an unserem Stand willkommen. Es war schoen, mit Ihnen zu sprechen!"
-            else:
-                return "No problem at all. You're welcome at our booth anytime. Great chatting with you!"
+            return "No problem at all. Say a warm goodbye in the visitor's language, wish them a great rest of EuroShop, and mention the team is at the booth if they have questions later."
 
     # ══════════════════════════════════════════════════════════════════════════
     # TRANSCRIPTION — streams agent text to frontend
