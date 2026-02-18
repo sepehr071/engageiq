@@ -5,7 +5,6 @@ User-facing messages live in config/messages.py.
 """
 
 import os
-import logging
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -78,13 +77,10 @@ IMAGE_CDN_BASE_URL = "https://image.ayand.cloud/Images/"
 # =============================================================================
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ayand-log.vercel.app/api/webhooks/ingest")
-WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "")
+WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "ayand-secret-key-3dcSDSfgcGsasdcvg3235fvsaacv1")
 WEBHOOK_COMPANY_NAME = os.getenv("WEBHOOK_COMPANY_NAME", "Ayand AI")
 WEBHOOK_TIMEOUT = 10  # seconds
 WEBHOOK_RETRIES = 3
-
-if not WEBHOOK_API_KEY:
-    logging.getLogger(__name__).warning("WEBHOOK_API_KEY not set — webhooks will fail authentication")
 
 # =============================================================================
 # 10. AGENT IDENTITY
