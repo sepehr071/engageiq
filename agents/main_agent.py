@@ -207,6 +207,12 @@ class EngageIQAssistant(BaseAgent):
         """
         Call this after detecting visitor role to present EngageIQ with personalized value proposition.
         """
+        # Idempotency guard — only present once per session
+        if self.userdata.engageiq_presented:
+            hint = lang_hint(self.userdata.language)
+            logger.info("present_engageiq called again but already presented — skipping")
+            return f"You already presented EngageIQ. Do NOT present again. Continue the conversation — ask about their challenge or check engagement. {hint}"
+
         logger.info(f"Presenting EngageIQ to visitor with role: {self.userdata.visitor_role}")
 
         # Mark presentation as done
