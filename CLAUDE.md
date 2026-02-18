@@ -94,21 +94,24 @@ The main agent greets, has natural conversation, detects the visitor's role when
 ### Key Patterns
 
 - **LLM lives on `AgentSession`**, not on individual agents. Agents only provide `instructions`.
-- **Silent tools**: Tools return `None` to avoid robotic announcements like "Let me save a quick summary"
+- **Both agents extend `BaseAgent`**: `EngageIQAssistant` and `LeadCaptureAgent` both inherit from `BaseAgent` (`agents/base.py`), which provides `_safe_reply()` (retry + fallback) and `transcription_node` (streams text to frontend).
+- **Tool return strings**: Tools return instruction strings to guide the LLM's next action. Only tools that should be truly silent return `None`.
 - **Frontend communication** via LiveKit room topics: `message` (text), `products` (client images), `trigger` (UI buttons), `clean` (reset), `language` (language switch)
-- **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5
+- **Intent scoring** is inline in tool functions (cumulative `+N` per tool call), max score: 5, threshold ≥3 for lead capture
 - **Client images**: When explaining EngageIQ, agent calls `present_engageiq` which sends CORE/DFKI images to frontend
 - **Graceful handling**: Vague answers get +1 intent (not 0), agent rephrases question once
-- **Handoffs** return a new agent instance from `@function_tool` methods
+- **Handoffs** return a new agent instance from `@function_tool` methods, passing `chat_ctx=self.session.history` for context preservation
 - **Default language** is German (`config/languages.py:DEFAULT_LANGUAGE = "de"`)
-- **Lead notification** sent to `info@ayand.ai`
+- **Lead notification** sent to `info@ayand.ai` via non-blocking SMTP (`run_in_executor`)
 - **Role-based personalization**: Agent detects visitor role, personalizes EngageIQ presentation
 - **Consent flow**: Contact info collected → YES/NO buttons → explicit consent → save or discard
 - **Partial leads**: If user gives contact info but closes session, partial data is saved
 - **Transcript email extraction**: On sudden session close, `_extract_contact_from_transcript()` in `agent.py` scans the chat transcript for email addresses and populates `partial_email` if the LLM hadn't yet called `store_partial_contact_info`
 - **EngageIQ guard**: `connect_to_lead_capture` requires `engageiq_presented=True` — agent must present product before lead capture
-- **Natural product advocacy**: Agent always steers conversation toward EngageIQ naturally, even in casual exchanges
+- **Natural product advocacy**: Agent always steers conversation toward EngageIQ naturally, even in casual exchanges. Mentioning EngageIQ is allowed anytime; formal presentation (calling `present_engageiq`) happens after 2-3 exchanges.
 - **Client story social proof**: Agent uses CORE Oldenburg and DFKI stories mid-conversation (one per conversation, matched to visitor context)
+- **Shutdown safety**: `on_shutdown` wraps `session.current_agent` in `try/except RuntimeError` and falls back to `session.history.items` — never loses data even if session isn't running
+- **Session restart preserves attribution**: Both `restart_session` methods save history + send webhook before restarting, and preserve `campaign_source` in the fresh `UserData`
 
 ### Directory Structure
 
@@ -138,21 +141,25 @@ utils/
 
 ## Conventions
 
-### Silent Tools (Important)
+### Agent Inheritance
 
-Tools return `None` to avoid the LLM speaking robotic messages. Only return a string if you want the LLM to announce something:
+Both agents extend `BaseAgent` (`agents/base.py`):
 
 ```python
-@function_tool
-async def save_conversation_summary(self, context: RunContext_T, summary: str):
-    logger.info(f"Conversation summary: {summary}")
-    self.userdata.conversation_summary = summary.strip()
-    return None  # Silent — don't say "summary saved" out loud
+class EngageIQAssistant(BaseAgent):  # NOT Agent directly
+    def __init__(self, room, userdata=None, first_message=False):
+        userdata = userdata or UserData()  # null safety
+        # ... build prompt ...
+        super().__init__(instructions=prompt, room=room, userdata=userdata)
 ```
+
+`BaseAgent` provides:
+- `_safe_reply(instructions)` — retry with backoff + fallback message on failure
+- `transcription_node` — streams agent text to frontend via `"message"` topic
 
 ### Agent Handoffs
 
-Return a new agent instance from a `@function_tool` to trigger handoff:
+Return a new agent instance from a `@function_tool` to trigger handoff. Always pass `self.session.history` for context:
 ```python
 @function_tool
 async def connect_to_lead_capture(self, context: RunContext_T, confirm: bool):
@@ -165,7 +172,7 @@ async def connect_to_lead_capture(self, context: RunContext_T, confirm: bool):
         return LeadCaptureAgent(
             instructions=instructions,
             room=self.room,
-            chat_ctx=self.chat_ctx,
+            chat_ctx=self.session.history,  # session-level history, not agent-level
             userdata=self.userdata,
         )
 ```
@@ -182,13 +189,13 @@ Stored in `UserData.intent_score`.
 
 | Tool | Purpose | Returns |
 |------|---------|---------|
-| `detect_visitor_role` | Store visitor's role | `None` (silent) |
+| `detect_visitor_role` | Store visitor's role | Instruction string |
 | `present_engageiq` | Present EngageIQ with client images | Presentation overlay |
-| `collect_challenge` | Store visitor's challenge answer | `None` (silent) |
+| `collect_challenge` | Store visitor's challenge answer | Instruction string |
 | `check_intent_and_proceed` | Check engagement level, send YES/NO buttons | Instructions |
-| `save_conversation_summary` | Save summary for webhook | `None` (silent) |
-| `restart_session` | Restart conversation from beginning | New agent |
-| `connect_to_lead_capture` | Handoff or goodbye, send clean topic | New agent or None |
+| `save_conversation_summary` | Save summary for webhook | Instruction string |
+| `restart_session` | Save history + webhook, restart conversation | New agent |
+| `connect_to_lead_capture` | Handoff or goodbye, send clean topic | New agent or instruction string |
 
 ### Consent Flow (Lead Capture)
 
@@ -245,11 +252,16 @@ Stored in `UserData.intent_score`.
 - `nextStep` — derived from flow state (e.g., "Team will follow up via email")
 - `status` — `hot_lead` / `warm_lead` / `declined` / `no_contact`
 
+**Webhook company name**: `WEBHOOK_COMPANY_NAME` with `BOOTH_LOCATION` appended (e.g., `"Ayand AI-C4"`). Configured in `config/settings.py`.
+
 **Webhook triggers**:
-- Session shutdown (always)
+- Session shutdown (always — `on_shutdown` in `agent.py`)
 - After consent confirmation (`confirm_consent`)
-- When visitor declines contact (`connect_to_lead_capture(confirm=false)`)
+- When visitor declines consent (`confirm_consent(false)`) — webhook sent BEFORE clearing partial data
 - **Immediately when email is collected** (`store_partial_contact_info`) — ensures partial lead data is sent even if session drops before consent
+- On session restart (both agents save history + webhook before restarting)
+
+**Note**: `connect_to_lead_capture(confirm=false)` does NOT save/webhook — it lets `on_shutdown` handle it since the visitor may continue talking.
 
 ### Role-Based Personalization
 
@@ -285,9 +297,13 @@ WEBHOOK_API_KEY=       # Webhook API key
 WEBHOOK_COMPANY_NAME=  # Company name for webhook
 ```
 
-## Placeholders (fill before launch)
+## Agent Identity Config (fill before launch)
 
-- `prompt/main_agent.py`: `AVATAR_NAME = "[AVATAR_NAME_TBD]"` and `BOOTH_LOCATION = "[BOOTH TBD]"`
+Configured in `config/settings.py` (section 10):
+- `AVATAR_NAME = "Leila"` — avatar's display name used throughout prompts
+- `BOOTH_LOCATION = ""` — e.g., `"C4"` — appended to webhook company name (e.g., `"Ayand AI-C4"`)
+
+Imported by `prompt/main_agent.py` from `config.settings`.
 
 ## Recent Changes (Feb 2026)
 
@@ -295,7 +311,6 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 - **Prompt architecture**: English-only base prompts + separate `prompt/language.py` for language directives
 - **`build_prompt_with_language()`**: Single function to combine base prompt + language directive at TOP
 - **`LanguageSwitchHandler`**: Rebuilds full prompt on language change, detects agent type for correct base
-- **Silent tools**: Tools return `None` instead of strings to avoid robotic messages
 - **Natural conversation**: Prompts guide rather than force rigid step sequences
 - **Consent flow**: Explicit YES/NO consent buttons after collecting contact info
 - **Partial leads**: Contact info saved even if session closes before consent
@@ -314,14 +329,33 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 - **Live demo identity**: Agent strongly knows it IS EngageIQ — "you're using it right now" framing throughout prompt
 - **Transcript email extraction**: Safety net in `on_shutdown()` — scans transcript for email if `partial_email` is empty before sending webhook
 
+### Audit Fixes (Feb 2026)
+
+- **Critical shutdown fix**: `on_shutdown` wraps `session.current_agent` in `try/except RuntimeError`, falls back to `session.history.items` — no more data loss on session close
+- **EngageIQAssistant extends BaseAgent**: Inherits `_safe_reply()` and `transcription_node` — no more duplicated code
+- **Handoff uses `session.history`**: `connect_to_lead_capture` passes `self.session.history` (session-level) instead of `self.chat_ctx` (agent-level)
+- **Public `chat_ctx` API**: All `_chat_ctx` references replaced with public `chat_ctx` property or `session.history`
+- **Avatar config centralized**: `AVATAR_NAME` and `BOOTH_LOCATION` in `config/settings.py`, imported by prompt builder
+- **Booth location in webhook**: `BOOTH_LOCATION` appended to webhook `companyName` (e.g., `"Ayand AI-C4"`)
+- **Intent constants aligned**: `INTENT_SCORE_MAX=5`, thresholds `3/4/5` (was `10` and `4/5/7`)
+- **Null safety**: `userdata or UserData()` in both `EngageIQAssistant` and `BaseAgent` constructors
+- **Restart saves data**: Both `restart_session` methods save history + send webhook before restarting, and preserve `campaign_source`
+- **Webhook data ordering**: `confirm_consent(false)` sends webhook BEFORE clearing partial data
+- **Decline doesn't save prematurely**: `connect_to_lead_capture(false)` no longer saves/webhooks mid-conversation — `on_shutdown` handles it
+- **Non-blocking SMTP**: `send_lead_notification` wrapped in `run_in_executor` to avoid blocking the event loop
+- **Async product send**: `_send_product_to_frontend` is now `async` and properly `await`ed
+- **Prompt clarifications**: "Mentioning vs Presenting" distinction; `present_engageiq` allowed without role detection when visitor asks directly
+
 ## LiveKit SDK Patterns (Critical)
 
-- **Tool return values**: Return `None` for silent tools, return string only if LLM should speak
 - **Seamless handoffs**: Return just the Agent instance for silent handoff
-- **`chat_ctx`**: Always pass `chat_ctx=self.chat_ctx` when creating handoff agents
+- **`chat_ctx` for handoffs**: Always pass `chat_ctx=self.session.history` (session-level context, not agent-level) when creating handoff agents
+- **Public API**: Use `self.chat_ctx` (public property) never `self._chat_ctx` (private). For session-level history, use `session.history.items`.
+- **`session.current_agent`**: Raises `RuntimeError` if session isn't running — always wrap in `try/except RuntimeError`
 - **`update_instructions()`**: Sends `session.update` to OpenAI Realtime API — language directive must be at TOP of prompt for the model to follow it
 - **`generate_reply(instructions=...)`**: Triggers immediate speech — do NOT use for silent language switching
 - **Console mode**: `participant.attributes` is a MagicMock in console mode
+- **SMTP in async context**: `smtplib` is blocking — always wrap in `asyncio.get_running_loop().run_in_executor(None, ...)` when calling from async code
 
 ## Language Switching (Important)
 
