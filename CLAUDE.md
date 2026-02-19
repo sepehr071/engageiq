@@ -79,9 +79,9 @@ The main agent greets, has natural conversation, detects the visitor's role when
 [Identity]                      ← English base from prompt/main_agent.py
 [About EngageIQ]
 [Product Knowledge]
-[How to Have This Conversation]
+[Conversation Style]
 [Tools]
-[Behavior Rules]
+[Rules]                         ← 13 compact rules (merged from previous 22)
 ```
 
 - **Base prompts** (`prompt/main_agent.py`, `prompt/workflow.py`) are always English-only
@@ -125,13 +125,13 @@ agents/
 config/
   languages.py              # 10 languages with formality rules
   products.py               # EngageIQ config + ROLE_HOOKS for personalization
-  settings.py               # LLM temperature, webhook config, thresholds
+  settings.py               # Model temperature, webhook config, thresholds
 core/
   session_state.py          # UserData dataclass (includes partial contact fields)
   lead_storage.py           # JSON lead file storage
 prompt/
   language.py               # Language directives (native-language, single source of truth)
-  main_agent.py             # Main agent English base prompt builder
+  main_agent.py             # Main agent English base prompt builder (build_main_prompt, build_greeting)
   workflow.py               # LeadCaptureAgent English base prompt builder
 utils/
   language_switcher.py      # Mid-conversation language switching via data channel
@@ -301,7 +301,7 @@ WEBHOOK_COMPANY_NAME=  # Company name for webhook
 
 ## Agent Identity Config (fill before launch)
 
-Configured in `config/settings.py` (section 10):
+Configured in `config/settings.py` (section 9):
 - `AVATAR_NAME = "Leila"` — avatar's display name used throughout prompts
 - `BOOTH_LOCATION = ""` — e.g., `"C4"` — appended to webhook company name (e.g., `"Ayand AI-C4"`)
 
@@ -339,7 +339,7 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Public `chat_ctx` API**: All `_chat_ctx` references replaced with public `chat_ctx` property or `session.history`
 - **Avatar config centralized**: `AVATAR_NAME` and `BOOTH_LOCATION` in `config/settings.py`, imported by prompt builder
 - **Booth location in webhook**: `BOOTH_LOCATION` appended to webhook `companyName` (e.g., `"Ayand AI-C4"`)
-- **Intent constants aligned**: `INTENT_SCORE_MAX=5`, thresholds `3/4/5` (was `10` and `4/5/7`)
+- **Intent scoring simplified**: Only `INTENT_THRESHOLD_QUALIFY=3` remains; unused constants removed in prompt audit
 - **Null safety**: `userdata or UserData()` in both `EngageIQAssistant` and `BaseAgent` constructors
 - **Restart saves data**: Both `restart_session` methods save history + send webhook before restarting, and preserve `campaign_source`
 - **Webhook data ordering**: `confirm_consent(false)` sends webhook BEFORE clearing partial data
@@ -355,16 +355,31 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Proactive presentation**: Agent presents EngageIQ as soon as it learns the visitor's role, industry, or challenge — one signal is enough. No more "wait 2-3 exchanges" delay.
 - **Anti-repetition rules**: Agent never repeats client stories, talking points, or transition phrases
 - **Name usage**: Agent uses visitor's name when shared ("Nice to meet you, Bibi!")
-- **Buying signal recognition**: Agent moves forward when visitor says "I want it" instead of continuing to pitch
+- **Buying signal recognition**: Agent moves forward when visitor says "I want it" or "I need your help" instead of continuing to pitch
 - **Simplified tool returns**: `check_intent_and_proceed` returns concise instructions instead of re-pitching EngageIQ
 - **Self-introduction variety**: Self-intro examples vary — some mention EngageIQ, some don't, avoiding robotic bridges
-- **Answer-the-question rule**: Agent doesn't redirect to questions the visitor already answered
 - **All tools return instructions**: Every tool returns a short directive instruction string — no more `None` returns anywhere. This ensures the Realtime model always generates a response after tool calls.
-- **Anti-chatbot rules**: Rule 11 explicitly forbids chatbot phrases ("I'm here to help", "feel free to let me know", etc.). Agent is a product demonstrator, not a passive chatbot.
-- **Never give up (Rule 18)**: When visitor says "no", agent pivots to another angle instead of giving up
-- **No dead-end responses (Rule 19)**: Every response must end with a question, connection to EngageIQ, or forward-moving statement
-- **One-message-per-turn rule**: Prompt rule 17 tells agent to follow tool instructions and respond in one message — never announce tool calls ("let me show you", "one moment")
+- **Anti-chatbot rules**: Prompt explicitly forbids chatbot phrases ("I'm here to help", "feel free to let me know", etc.)
+- **Never give up**: When visitor says "no", agent pivots to another angle instead of giving up
+- **One-message-per-turn rule**: Agent follows tool instructions and responds in one message — never announces tool calls
 - **Temperature 0.7**: Increased from 0.6 for more varied responses
+
+### Prompt Audit (Feb 2026)
+
+- **Dead code removed**: Deleted `config/company.py` (unused), `build_engageiq_presentation()` (never called), `ACTIVE_PRODUCTS`, `what_is_it`, `LLM_MODEL`, `get_formality()`, unused settings constants (`MAX_CONVERSATION_TURNS`, `MAX_RESPONSE_WORDS`, `GREETING_TIMEOUT_SECONDS`, `SILENCE_TIMEOUT_SECONDS`, `INTENT_THRESHOLD_CAPTURE`, `INTENT_THRESHOLD_HIGH`, `INTENT_SCORE_MIN`, `INTENT_SCORE_MAX`)
+- **Prompt compacted ~60%**: Main prompt reduced from ~2,800 words to ~1,100 words while preserving all behavioral intent
+- **Client descriptions merged**: CORE/DFKI info appeared 3x in prompt (About EngageIQ + Product Knowledge + client story guidance) — now single source in Product Knowledge block
+- **22 rules → 13 rules**: Removed duplicate rules (e.g., "EngageIQ first" stated 3x, "names not roles" 2x, "no repetition" 2x), merged related rules (buying signals + help-seeking, never give up + keep moving)
+- **"How to Have This Conversation" + "Behavior Rules" → unified "Conversation Style" + compact "Rules"**: Two verbose sections merged into one cohesive guide
+- **Self-intro examples reduced**: 6 → 3, with "vary naturally — don't copy verbatim" instruction
+- **Boundaries compressed**: Removed scripted redirect examples, replaced with principle ("acknowledge warmly, pivot to EngageIQ")
+- **Product Knowledge block compacted**: Removed duplicated `problem`/`value_proposition` fields (already in About EngageIQ), merged tagline into header
+- **Summaries are INTERNAL**: Tool returns include `(INTERNAL — do NOT speak it aloud)` to prevent agent from reading summaries to visitors
+- **No third-person references**: Agent never refers to visitor as "the visitor" — always "you"
+- **Visitor-adaptive presentation**: Agent adapts language to visitor context (student ≠ business owner), never says "businesses like yours" to non-business visitors
+- **Help-seeking = buying signal**: "I need your help" / "can you help me" triggers offer of team follow-up
+- **Concrete "experiencing EngageIQ"**: Agent explains concretely what it means ("this conversation IS EngageIQ understanding your needs and capturing signals") instead of vague "you're experiencing it"
+- **Images explained as real deployments**: `present_engageiq` tool return instructs agent to tell visitors the images show real businesses using EngageIQ
 
 ## LiveKit SDK Patterns (Critical)
 
