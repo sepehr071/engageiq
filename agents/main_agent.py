@@ -120,7 +120,7 @@ class EngageIQAssistant(BaseAgent):
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
         hint = lang_hint(self.userdata.language)
-        return f"Summary saved. Continue the conversation. {hint}"
+        return f"Summary saved (INTERNAL — do NOT speak it aloud). Continue the conversation. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
