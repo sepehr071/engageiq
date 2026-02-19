@@ -234,7 +234,7 @@ class EngageIQAssistant(BaseAgent):
         hint = lang_hint(self.userdata.language)
         role = self.userdata.visitor_role
         if role:
-            return f"Images are on their screen. Present EngageIQ now — connect it to their role as {role}. Keep it to 2-3 sentences. {hint}"
+            return f"Images are on their screen. Present EngageIQ now — connect it to their context as {role}. Adapt your language to THEIR world (student ≠ business owner). Keep it to 2-3 sentences. {hint}"
         else:
             return f"Images are on their screen. Present EngageIQ now — explain what it does and that they're experiencing it right now. Keep it to 2-3 sentences. {hint}"
 

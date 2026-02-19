@@ -22,7 +22,13 @@
       "Bash(conda run:*)",
       "Bash(C:/Users/USer/miniconda3/envs/engage/python.exe -c \"import livekit.agents; print\\(livekit.agents.__file__\\)\")",
       "Bash(find:*)",
-      "Bash(C:/Users/USer/miniconda3/envs/engage/python.exe:*)"
+      "Bash(C:/Users/USer/miniconda3/envs/engage/python.exe:*)",
+      "Bash(pip show:*)",
+      "Bash(conda list:*)",
+      "mcp__livekit-docs__get_changelog",
+      "Bash(git checkout:*)",
+      "Bash(None to complete the tool silently without requiring a reply from the LLM.\"\nThis prevents the Realtime model from generating two separate messages per\ntool call.\n\nOnly check_intent_and_proceed keeps returning a string \\(score-based branching\\).\n\nAlso: temperature 0.6 → 0.7, prompt rule 17 \\(one message per turn\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "mcp__livekit-docs__get_python_agent_example"
     ]
   },
   "prefersReducedMotion": true
