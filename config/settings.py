@@ -13,7 +13,6 @@ load_dotenv()
 # =============================================================================
 
 RT_MODEL = "gpt-realtime-mini-2025-10-06"       # Realtime voice model
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")  # Fallback text model
 LLM_TEMPERATURE = 0.7                          # Temperature for realtime model
 # =============================================================================
 # 2. SMTP SETTINGS
@@ -29,23 +28,10 @@ SMTP_CONFIG = {
 # 3. INTENT SCORING THRESHOLDS
 # =============================================================================
 
-INTENT_THRESHOLD_QUALIFY = 3    # Matches check_intent_and_proceed threshold
-INTENT_THRESHOLD_CAPTURE = 4
-INTENT_THRESHOLD_HIGH = 5
-INTENT_SCORE_MIN = 1
-INTENT_SCORE_MAX = 5            # Actual max: 2 (present) + 3 (challenge)
+INTENT_THRESHOLD_QUALIFY = 3    # Used by check_intent_and_proceed (score >= 3)
 
 # =============================================================================
-# 4. CONVERSATION LIMITS
-# =============================================================================
-
-MAX_CONVERSATION_TURNS = 50     # Safety limit on conversation length
-MAX_RESPONSE_WORDS = 60         # Trade show context: keep responses short
-GREETING_TIMEOUT_SECONDS = 30   # How long to wait before re-greeting an idle visitor
-SILENCE_TIMEOUT_SECONDS = 120   # How long before the session times out on silence
-
-# =============================================================================
-# 5. DEBUG & LOGGING
+# 4. DEBUG & LOGGING
 # =============================================================================
 
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
@@ -53,7 +39,7 @@ SAVE_CONVERSATION_HISTORY = True
 LOGS_DIR = "docs"               # Directory for log files and conversation history
 
 # =============================================================================
-# 6. LIVEKIT SETTINGS
+# 5. LIVEKIT SETTINGS
 # =============================================================================
 
 LIVEKIT_URL = os.getenv("LIVEKIT_URL", "")
@@ -61,19 +47,19 @@ LIVEKIT_API_KEY = os.getenv("LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.getenv("LIVEKIT_API_SECRET", "")
 
 # =============================================================================
-# 7. OPENAI API
+# 6. OPENAI API
 # =============================================================================
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # =============================================================================
-# 8. IMAGE CDN
+# 7. IMAGE CDN
 # =============================================================================
 
 IMAGE_CDN_BASE_URL = "https://image.ayand.cloud/Images/"
 
 # =============================================================================
-# 9. WEBHOOK CONFIGURATION
+# 8. WEBHOOK CONFIGURATION
 # =============================================================================
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://ayand-log.vercel.app/api/webhooks/ingest")
@@ -83,7 +69,7 @@ WEBHOOK_TIMEOUT = 10  # seconds
 WEBHOOK_RETRIES = 3
 
 # =============================================================================
-# 10. AGENT IDENTITY
+# 9. AGENT IDENTITY
 # =============================================================================
 
 AVATAR_NAME = "Leila"       # Change before launch

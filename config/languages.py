@@ -116,11 +116,6 @@ def get_language_config(code: str) -> dict:
     return LANGUAGES.get(code, LANGUAGES[DEFAULT_LANGUAGE])
 
 
-def get_formality(code: str) -> str:
-    """Return the formality rule for a given language code."""
-    lang = get_language_config(code)
-    return lang["formality"]
-
 
 # =============================================================================
 # BUTTON LABELS — localized UI text for frontend buttons

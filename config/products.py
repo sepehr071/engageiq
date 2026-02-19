@@ -16,12 +16,6 @@ PRODUCTS = {
         "key": "engageiq",
         "name": "EngageIQ",
         "subtitle": "Conversational Demand Interface",
-        "what_is_it": (
-            "An AI-powered system that captures invisible customer demand through "
-            "natural conversation. EngageIQ engages visitors 24/7, understands their "
-            "intent, and turns anonymous interactions into qualified leads with "
-            "intent scoring and structured data."
-        ),
         "problem_solved": (
             "Most businesses have no visibility into what their visitors actually want. "
             "98% of website visitors leave without sharing contact info. Staff can't "
@@ -112,12 +106,6 @@ PRODUCTS = {
         ],
     },
 }
-
-# =============================================================================
-# ACTIVE PRODUCTS — for demo conversations
-# =============================================================================
-
-ACTIVE_PRODUCTS = {k: v for k, v in PRODUCTS.items() if v["status"] == "active"}
 
 
 # =============================================================================

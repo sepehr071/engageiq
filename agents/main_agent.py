@@ -36,23 +36,13 @@ def _build_product_data_for_prompt() -> dict:
         if pricing.get("guarantee"):
             pilot_str += f" ({pricing['guarantee']})"
 
-        # Build client info string
-        clients = p.get("clients", [])
-        clients_str = ""
-        if clients:
-            client_names = [c["name"] for c in clients]
-            clients_str = f"Used by: {', '.join(client_names)}"
-
         result[key] = {
             "name": p["name"],
             "tagline": p.get("subtitle", ""),
-            "problem": p.get("problem_solved", ""),
-            "value_proposition": p.get("value_prop", ""),
             "capabilities": p.get("capabilities", []),
             "installation": p.get("installation", ""),
             "pilot_pricing": pilot_str,
-            "clients": clients_str,
-            "client_details": clients,
+            "client_details": p.get("clients", []),
         }
     return result
 
