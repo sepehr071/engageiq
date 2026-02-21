@@ -221,9 +221,9 @@ class EngageIQAssistant(BaseAgent):
         hint = lang_hint(self.userdata.language)
         role = self.userdata.visitor_role
         if role:
-            return f"Images of real EngageIQ deployments are on their screen. Present EngageIQ — tell them the images show real businesses using it (CORE Oldenburg, DFKI). Connect to their context as {role}. Adapt language to THEIR world. Be concrete about what 'experiencing EngageIQ' means: THIS conversation is EngageIQ understanding their needs and capturing signals. 2-3 sentences. {hint}"
+            return f"Images sent. Present EngageIQ briefly — real deployments (CORE, DFKI). Connect to their {role} context. 1-2 sentences. {hint}"
         else:
-            return f"Images of real EngageIQ deployments are on their screen. Present EngageIQ — tell them the images show real businesses using it. Be concrete: THIS conversation is EngageIQ in action — understanding their needs, personalizing to them, capturing signals. That's what it does for businesses. 2-3 sentences. {hint}"
+            return f"Images sent. Present EngageIQ briefly — real deployments you see are CORE and DFKI using it. 1-2 sentences. {hint}"
 
     async def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
