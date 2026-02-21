@@ -51,7 +51,6 @@ def save_lead(userdata) -> str:
             "biggest_challenge": userdata.biggest_challenge,
         },
         "campaign_source": userdata.campaign_source,
-        "next_step_offered": userdata.next_step_offered,
         "conversation_summary": userdata.conversation_summary,
     }
 

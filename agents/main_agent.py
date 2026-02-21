@@ -1,30 +1,27 @@
 """
 Main conversational agent (EngageIQAssistant) — handles greeting, product presentation,
-simplified qualification, and intent scoring.
+lead capture, and consent. Single agent — no handoff.
 
 This agent IS the demo: visitors experience EngageIQ by talking to it.
 """
 
+import asyncio
 import json
 import logging
 from livekit.agents import function_tool
 from agents.base import BaseAgent
 
 from core.session_state import UserData, RunContext_T
+from core.lead_storage import save_lead
 from config.products import PRODUCTS
 from prompt.main_agent import build_main_prompt, build_greeting
 from prompt.language import build_prompt_with_language, lang_hint
 from config.languages import get_language_config, get_button_labels
 from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
+from utils.smtp import is_valid_email_syntax, send_lead_notification
 
 logger = logging.getLogger(__name__)
-
-# Phrases that indicate a vague/non-specific challenge
-_VAGUE_CHALLENGE = [
-    "not sure", "nothing specific", "just looking", "don't know",
-    "keine ahnung", "weiss nicht", "nichts bestimmtes", "nur schauen",
-]
 
 
 def _build_product_data_for_prompt() -> dict:
@@ -48,13 +45,13 @@ def _build_product_data_for_prompt() -> dict:
 
 
 class EngageIQAssistant(BaseAgent):
-    """Main EuroShop booth agent.
+    """Main EuroShop booth agent — single agent, no handoff.
 
     Handles:
     - Greeting in the visitor's language
     - EngageIQ product presentation with client examples
-    - Simplified qualification (1 question with intent scoring)
-    - Handoff to lead capture when qualified
+    - Persistent contact offering (after 2nd user message)
+    - Inline lead capture (contact collection + consent)
     """
 
     def __init__(
@@ -268,117 +265,181 @@ class EngageIQAssistant(BaseAgent):
     @function_tool
     async def collect_challenge(self, context: RunContext_T, challenge: str):
         """
-        Call this when the visitor describes their biggest challenge with customer demand or engagement.
-        challenge (required): A brief summary of the visitor's stated challenge. Can be vague if they're unsure.
+        Call this when the visitor describes a challenge with customer demand or engagement.
+        challenge (required): A brief summary of the visitor's stated challenge.
         """
         logger.info(f"Challenge collected: {challenge}")
         self.userdata.biggest_challenge = challenge
-
-        # Intent: specific challenge = +3, vague/don't know = +1 (always give at least +1)
-        challenge_lower = challenge.lower()
-        if any(v in challenge_lower for v in _VAGUE_CHALLENGE):
-            self.userdata.intent_score += 1
-            logger.info(f"Intent score after vague challenge: {self.userdata.intent_score}")
-        else:
-            self.userdata.intent_score += 3
-            logger.info(f"Intent score after specific challenge: {self.userdata.intent_score}")
+        self.userdata.intent_score += 1
+        logger.info(f"Intent score after challenge: {self.userdata.intent_score}")
         hint = lang_hint(self.userdata.language)
-        if not self.userdata.engageiq_presented:
-            return f"Challenge noted. Now present EngageIQ as the solution to their challenge — call present_engageiq and connect it to what they just told you. {hint}"
-        return f"Challenge noted. Respond with empathy, then call check_intent_and_proceed. {hint}"
+        return f"Challenge noted. Continue the conversation naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
-    # INTENT CHECK & RE-ENGAGEMENT
+    # LEAD CAPTURE (inline — no handoff)
     # ══════════════════════════════════════════════════════════════════════════
 
     @function_tool
-    async def check_intent_and_proceed(self, context: RunContext_T):
+    async def store_partial_contact_info(
+        self,
+        context: RunContext_T,
+        name: str,
+        email: str,
+        company: str = "",
+        role: str = "",
+        phone: str = "",
+    ):
         """
-        Call this AFTER collecting the visitor's challenge.
-        Checks visitor engagement level and returns instructions for next step.
+        Call this when the visitor provides their contact information (BEFORE asking consent).
+        Stores info temporarily while you ask for consent.
+        name (required): The visitor's name.
+        email (required): The visitor's email address.
+        company: The visitor's company name.
+        role: The visitor's job title or role.
+        phone: The visitor's phone number (optional).
         """
-        # Guard: EngageIQ must be presented before checking intent
-        if not self.userdata.engageiq_presented:
-            hint = lang_hint(self.userdata.language)
-            logger.info("check_intent_and_proceed blocked: EngageIQ not yet presented")
-            return f"You haven't presented EngageIQ yet. Call present_engageiq first — connect it to the visitor's challenge or role. {hint}"
+        logger.info(f"Partial contact info: name={name}, email={email}, company={company}")
 
-        score = self.userdata.intent_score
-        logger.info(f"Checking intent score: {score}/5")
+        # Validate email
+        if not is_valid_email_syntax(email):
+            logger.info(f"Invalid email: {email}")
+            return f"That email doesn't seem right. Ask the visitor to double-check it. {lang_hint(self.userdata.language)}"
 
-        if score >= 3:
-            # Send YES/NO contact sharing buttons to frontend
+        # Store as PARTIAL contact info (not yet finalized)
+        self.userdata.partial_name = name.strip()
+        self.userdata.partial_email = email.lower().strip()
+        self.userdata.partial_company = company.strip() if company else None
+        self.userdata.partial_role_title = role.strip() if role else None
+        self.userdata.partial_phone = phone.strip() if phone else None
+
+        # Intent: sharing contact = strong signal
+        self.userdata.intent_score += 2
+        logger.info(f"Intent score after contact info: {self.userdata.intent_score}")
+
+        # Send YES/NO consent buttons to frontend
+        labels = get_button_labels(self.userdata.language)
+        try:
+            await self.room.local_participant.send_text(
+                json.dumps({labels["consent_yes"]: labels["consent_yes"], labels["consent_no"]: labels["consent_no"]}),
+                topic="trigger",
+            )
+            logger.info("Sent consent buttons to frontend")
+        except Exception as e:
+            logger.error(f"Failed to send consent buttons: {e}")
+
+        # Send webhook immediately with partial lead data (in case session drops)
+        try:
+            chat_history = self.chat_ctx.items
+            session_id = self.userdata.session_id or "unknown"
+            await send_session_webhook(session_id, chat_history, self.userdata)
+            logger.info("Partial lead webhook sent (email collected)")
+        except Exception as e:
+            logger.error(f"Partial lead webhook failed: {e}")
+
+        hint = lang_hint(self.userdata.language)
+        return f"Info received. Now ask: 'May we use your contact information to follow up?' YES/NO buttons are on screen. {hint}"
+
+    @function_tool
+    async def confirm_consent(self, context: RunContext_T, consent: bool):
+        """
+        Call this after asking for consent to use the visitor's contact information.
+        consent (required): true if visitor agrees, false if they decline.
+        """
+        logger.info(f"Consent response: {consent}")
+        self.userdata.consent_given = consent
+
+        if consent:
+            # Move partial data to final contact fields
+            self.userdata.name = self.userdata.partial_name
+            self.userdata.email = self.userdata.partial_email
+            self.userdata.company = self.userdata.partial_company
+            self.userdata.role_title = self.userdata.partial_role_title
+            self.userdata.phone = self.userdata.partial_phone
+            self.userdata.lead_captured = True
+
+            # Save lead as JSON
+            try:
+                filepath = save_lead(self.userdata)
+                logger.info(f"Lead saved to {filepath}")
+            except Exception as e:
+                logger.error(f"Failed to save lead JSON: {e}")
+
+            # Send email notification (non-blocking via executor)
+            try:
+                loop = asyncio.get_running_loop()
+                success = await loop.run_in_executor(None, lambda: send_lead_notification(
+                    name=self.userdata.name or "",
+                    company=self.userdata.company or "",
+                    role_title=self.userdata.role_title or "",
+                    email=self.userdata.email or "",
+                    phone=self.userdata.phone or "",
+                    intent_score=self.userdata.intent_score,
+                    biggest_challenge=self.userdata.biggest_challenge or "",
+                    campaign_source=self.userdata.campaign_source or "",
+                    conversation_summary=self.userdata.conversation_summary or "",
+                ))
+                if success:
+                    logger.info("Lead email sent successfully")
+                else:
+                    logger.error("Lead email send failed")
+            except Exception as e:
+                logger.error(f"Lead email crashed: {e}")
+
+            # Send webhook with captured lead data
+            try:
+                chat_history = self.chat_ctx.items
+                session_id = self.userdata.session_id or "unknown"
+                await send_session_webhook(session_id, chat_history, self.userdata)
+                logger.info("Lead webhook sent successfully")
+            except Exception as e:
+                logger.error(f"Lead webhook failed: {e}")
+
+            # Mark history as saved to prevent duplicate on shutdown
+            self.userdata._history_saved = True
+
+            # Send "new conversation" button to frontend
             labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({labels["share_yes"]: labels["share_yes"], labels["share_no"]: labels["share_no"]}),
+                    json.dumps({labels["new_conversation"]: labels["new_conversation"]}),
                     topic="trigger",
                 )
-                logger.info("Sent contact sharing buttons to frontend")
             except Exception as e:
-                logger.error(f"Failed to send contact sharing buttons: {e}")
+                logger.error(f"New conversation button failed: {e}")
 
-            # Good signal - have more conversation before asking for contact
             hint = lang_hint(self.userdata.language)
-            return f"""GOOD_SIGNAL: The visitor seems interested.
+            return f"Lead saved! Thank them warmly and say goodbye. Mention the team will follow up. {hint}"
 
-Acknowledge their challenge with empathy, then naturally ask if they'd like our team to follow up with them.
-
-YES/NO buttons are on their screen. They can click or say Yes/No.
-If Yes → call connect_to_lead_capture(confirm=true).
-If No → call connect_to_lead_capture(confirm=false).
-
-{hint}"""
         else:
-            # Continue conversation - don't rush
-            return f"""CONTINUE_CONVERSATION: The visitor isn't fully engaged yet.
+            # Send webhook FIRST while data is still available
+            try:
+                chat_history = self.chat_ctx.items
+                session_id = self.userdata.session_id or "unknown"
+                await send_session_webhook(session_id, chat_history, self.userdata)
+            except Exception as e:
+                logger.error(f"Webhook failed: {e}")
 
-Keep the conversation natural — ask about their situation, listen genuinely. If they warm up, offer to have the team follow up. If they stay disengaged, say a warm goodbye and call connect_to_lead_capture(confirm=false).
+            # THEN clear partial data (visitor declined)
+            self.userdata.partial_name = None
+            self.userdata.partial_email = None
+            self.userdata.partial_company = None
+            self.userdata.partial_role_title = None
+            self.userdata.partial_phone = None
+            logger.info("Partial contact info discarded (visitor declined consent)")
 
-{lang_hint(self.userdata.language)}"""
+            # Mark history as saved
+            self.userdata._history_saved = True
 
-    # ══════════════════════════════════════════════════════════════════════════
-    # HANDOFF TO LEAD CAPTURE
-    # ══════════════════════════════════════════════════════════════════════════
-
-    @function_tool
-    async def connect_to_lead_capture(self, context: RunContext_T, confirm: bool):
-        """
-        Call this when the visitor has been qualified and you offer to collect their contact details for follow-up.
-        confirm (required): true if the visitor agrees, false if they decline.
-        """
-        logger.info(f"connect_to_lead_capture: confirm={confirm}, intent={self.userdata.intent_score}")
-
-        # Guard: EngageIQ must be presented before lead capture
-        if confirm and not self.userdata.engageiq_presented:
-            return f"You haven't presented EngageIQ yet. First call present_engageiq to show the visitor what EngageIQ does — personalize it to their role or business challenge. The visitor needs to understand the product before they'd share their contact info. {lang_hint(self.userdata.language)}"
-
-        if confirm:
-            self.userdata.qualification_started = True
-
-            # Clean frontend (remove product images) before handoff
+            # Send "new conversation" button
+            labels = get_button_labels(self.userdata.language)
             try:
                 await self.room.local_participant.send_text(
-                    json.dumps({"clean": True}), topic="clean"
+                    json.dumps({labels["new_conversation"]: labels["new_conversation"]}),
+                    topic="trigger",
                 )
-                logger.info("Sent clean topic before LeadCaptureAgent handoff")
             except Exception as e:
-                logger.error(f"Failed to send clean topic: {e}")
+                logger.error(f"New conversation button failed: {e}")
 
-            from agents.lead_capture_agents import LeadCaptureAgent
-            from prompt.workflow import build_lead_capture_prompt
-            # Return just the agent — no tuple message, so the main agent
-            # stays silent and LeadCaptureAgent speaks via on_enter()
-            base = build_lead_capture_prompt()
-            instructions = build_prompt_with_language(base, self.userdata.language)
-            return LeadCaptureAgent(
-                instructions=instructions,
-                room=self.room,
-                chat_ctx=self.session.history,
-                userdata=self.userdata,
-            )
-        else:
-            # M7: Let on_shutdown handle save/webhook — visitor may continue talking
             hint = lang_hint(self.userdata.language)
-            return f"Say a warm, brief goodbye. Wish them a great time at EuroShop. {hint}"
+            return f"Data discarded. Respect their choice — say a warm goodbye, no pressure. {hint}"
 

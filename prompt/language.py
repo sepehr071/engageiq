@@ -208,7 +208,7 @@ def build_prompt_with_language(base_prompt: str, language: str) -> str:
     For the default case, the directive is still included to ensure language consistency.
 
     Args:
-        base_prompt: English-only base prompt (from build_main_prompt or build_lead_capture_prompt).
+        base_prompt: English-only base prompt (from build_main_prompt).
         language: ISO language code (e.g., "de", "en", "fr").
 
     Returns:

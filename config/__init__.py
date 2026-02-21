@@ -8,7 +8,6 @@ from config.settings import (
     RT_MODEL,
     LLM_TEMPERATURE,
     SMTP_CONFIG,
-    INTENT_THRESHOLD_QUALIFY,
     SAVE_CONVERSATION_HISTORY,
     LOGS_DIR,
     DEBUG,
