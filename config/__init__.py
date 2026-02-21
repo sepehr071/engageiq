@@ -6,7 +6,6 @@ Usage: from config import PRODUCTS, DEFAULT_LANGUAGE, etc.
 from config.products import PRODUCTS
 from config.settings import (
     RT_MODEL,
-    LLM_TEMPERATURE,
     SMTP_CONFIG,
     SAVE_CONVERSATION_HISTORY,
     LOGS_DIR,

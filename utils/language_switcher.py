@@ -68,7 +68,8 @@ class LanguageSwitchHandler:
         """Rebuild the current agent's prompt for the new language.
 
         Uses the EngageIQAssistant prompt builder to generate a complete new prompt
-        with the language directive prepended at the TOP.
+        with the language directive prepended at the TOP. Also updates the
+        transcription language hint so STT correctly identifies the new language.
         """
         userdata = self._session.userdata
         old_language = userdata.language
@@ -93,6 +94,19 @@ class LanguageSwitchHandler:
 
         except Exception as e:
             logger.error(f"Failed to update agent instructions: {e}")
+
+        # Update transcription language hint so STT identifies the correct language
+        try:
+            from openai.types.realtime import AudioTranscription
+            self._session.llm.update_options(
+                input_audio_transcription=AudioTranscription(
+                    model="gpt-4o-mini-transcribe",
+                    language=new_language,
+                ),
+            )
+            logger.info(f"Transcription language updated to {new_language}")
+        except Exception as e:
+            logger.error(f"Failed to update transcription language: {e}")
 
     def _rebuild_prompt(self, agent: "Agent", language: str) -> str:
         """Rebuild the full prompt: native-language directive at TOP + English base.

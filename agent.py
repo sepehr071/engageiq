@@ -19,7 +19,8 @@ from core.session_state import UserData
 from agents.main_agent import EngageIQAssistant
 from utils.history import save_conversation_to_file
 from utils.webhook import send_session_webhook
-from config.settings import RT_MODEL, LLM_TEMPERATURE
+from config.settings import RT_MODEL
+from openai.types.realtime import AudioTranscription
 from config import DEFAULT_LANGUAGE
 import asyncio
 import json
@@ -113,7 +114,10 @@ async def entrypoint(ctx: agents.JobContext):
     session = AgentSession[UserData](
         llm=openai.realtime.RealtimeModel(
             model=RT_MODEL,
-            temperature=LLM_TEMPERATURE,
+            input_audio_transcription=AudioTranscription(
+                model="gpt-4o-mini-transcribe",
+                language=language,
+            ),
         ),
         userdata=user_data,
     )
