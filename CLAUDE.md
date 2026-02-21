@@ -11,7 +11,7 @@ LiveKit voice agent for Ayand AI's EuroShop 2026 booth. Visitors scan a QR code,
 - **Runtime:** Python 3.9 (conda env `engage`)
 - **Voice Framework:** LiveKit Agents SDK (`livekit-agents 1.4.1`)
 - **Voice Model:** OpenAI Realtime API (`gpt-realtime-mini-2025-10-06`)
-- **Model Temperature:** `0.7` (configured in `config/settings.py`)
+- **Transcription:** `gpt-4o-mini-transcribe` with ISO-639-1 language hint (configured in `agent.py`)
 - **No RAG, no search, no Flask** — all product knowledge is baked into prompts
 - **Note:** Noise cancellation (BVC) requires LiveKit Cloud paid plan — currently disabled
 
@@ -81,13 +81,13 @@ The main agent greets, has natural conversation, detects the visitor's role when
 [Product Knowledge]
 [Conversation Style]
 [Tools]
-[Rules]                         ← 13 compact rules (merged from previous 22)
+[Rules]                         ← 16 compact rules
 ```
 
 - **Base prompts** (`prompt/main_agent.py`, `prompt/workflow.py`) are always English-only
 - **Language directives** (`prompt/language.py`) are written IN the target language (German in German, etc.) for maximum Realtime model compliance
 - **Combined at runtime** via `build_prompt_with_language(base, language)` — directive at TOP for highest salience
-- **Mid-conversation switching**: `LanguageSwitchHandler` rebuilds the full prompt and calls `update_instructions()`
+- **Mid-conversation switching**: `LanguageSwitchHandler` rebuilds the full prompt, calls `update_instructions()`, and updates the transcription language hint via `update_options()`
 
 **Key principle:** Prompts guide naturally, don't force rigid sequences. The LLM decides when to call tools based on conversation flow.
 
@@ -125,7 +125,7 @@ agents/
 config/
   languages.py              # 10 languages with formality rules
   products.py               # EngageIQ config + ROLE_HOOKS for personalization
-  settings.py               # Model temperature, webhook config, thresholds
+  settings.py               # Model config, webhook config, thresholds
 core/
   session_state.py          # UserData dataclass (includes partial contact fields)
   lead_storage.py           # JSON lead file storage
@@ -230,8 +230,9 @@ Stored in `UserData.intent_score`.
 - Native-language directives in `prompt/language.py` (written IN the target language)
 - Combined via `build_prompt_with_language(base, lang)` — directive prepended at TOP
 - Language read from `participant.attributes["user.language"]` at session start
+- **Transcription language hint**: `AudioTranscription(model="gpt-4o-mini-transcribe", language=lang)` passed to `RealtimeModel` at session start and updated on language switch via `update_options()`
 - Mid-conversation switching via `LanguageSwitchHandler` (listens on `"language"` data channel topic)
-- On switch: rebuilds full prompt (directive at TOP + English base) and calls `update_instructions()`
+- On switch: rebuilds full prompt (directive at TOP + English base), calls `update_instructions()`, and updates transcription language hint
 
 ### Frontend Protocol
 
@@ -362,7 +363,8 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Anti-chatbot rules**: Prompt explicitly forbids chatbot phrases ("I'm here to help", "feel free to let me know", etc.)
 - **Never give up**: When visitor says "no", agent pivots to another angle instead of giving up
 - **One-message-per-turn rule**: Agent follows tool instructions and responds in one message — never announces tool calls
-- **Temperature 0.7**: Increased from 0.6 for more varied responses
+- **Transcription language hint**: `AudioTranscription(language=lang)` passed to `RealtimeModel` — prevents German being misdetected as Japanese. Updated on mid-conversation language switch via `update_options()`.
+- **Removed deprecated `temperature`**: `LLM_TEMPERATURE` removed from `config/settings.py` — temperature parameter is deprecated and ignored in OpenAI Realtime v1
 
 ### Prompt Audit (Feb 2026)
 
@@ -388,7 +390,9 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Public API**: Use `self.chat_ctx` (public property) never `self._chat_ctx` (private). For session-level history, use `session.history.items`.
 - **`session.current_agent`**: Raises `RuntimeError` if session isn't running — always wrap in `try/except RuntimeError`
 - **`update_instructions()`**: Sends `session.update` to OpenAI Realtime API — language directive must be at TOP of prompt for the model to follow it
+- **`update_options(input_audio_transcription=...)`**: Updates transcription config (model, language hint) at runtime without reconnecting — use on language switch
 - **`generate_reply(instructions=...)`**: Triggers immediate speech — do NOT use for silent language switching
+- **`temperature` is deprecated**: Realtime v1 ignores the `temperature` parameter — do NOT pass it to `RealtimeModel()`
 - **Console mode**: `participant.attributes` is a MagicMock in console mode
 - **SMTP in async context**: `smtplib` is blocking — always wrap in `asyncio.get_running_loop().run_in_executor(None, ...)` when calling from async code
 
@@ -400,3 +404,5 @@ Language directives MUST be:
 3. **Strong and emphatic** — UPPERCASE, "HIGHEST PRIORITY", "IGNORE all previous messages", repeated emphasis at end
 
 The `prompt/language.py` file is the single source of truth. Never add language directives to base prompts. Always use `build_prompt_with_language(base, language)` to compose.
+
+**Transcription language hint** is also critical — `AudioTranscription(language=lang)` tells `gpt-4o-mini-transcribe` which language to expect, improving accuracy and preventing misdetection (e.g., German → Japanese). The `LanguageSwitchHandler` updates both the prompt AND the transcription hint on language change.
