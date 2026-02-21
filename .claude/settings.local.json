@@ -28,7 +28,12 @@
       "mcp__livekit-docs__get_changelog",
       "Bash(git checkout:*)",
       "Bash(None to complete the tool silently without requiring a reply from the LLM.\"\nThis prevents the Realtime model from generating two separate messages per\ntool call.\n\nOnly check_intent_and_proceed keeps returning a string \\(score-based branching\\).\n\nAlso: temperature 0.6 → 0.7, prompt rule 17 \\(one message per turn\\).\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "mcp__livekit-docs__get_python_agent_example"
+      "mcp__livekit-docs__get_python_agent_example",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(your needs, personalizing to you, capturing signals.\"\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git --no-pager log --oneline -5)",
+      "Bash(git --no-pager diff CLAUDE.md)",
+      "Bash(git --no-pager diff:*)"
     ]
   },
   "prefersReducedMotion": true

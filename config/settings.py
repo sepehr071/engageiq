@@ -72,6 +72,6 @@ WEBHOOK_RETRIES = 3
 # 9. AGENT IDENTITY
 # =============================================================================
 
-AVATAR_NAME = "Leila"       # Change before launch
-BOOTH_LOCATION = ""          # e.g. "C4" — appended to webhook company name
+AVATAR_NAME = "johanna"       # Change before launch
+BOOTH_LOCATION = "A1"          # e.g. "C4" — appended to webhook company name
 
