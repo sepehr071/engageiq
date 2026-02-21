@@ -95,12 +95,12 @@ class EngageIQAssistant(BaseAgent):
         if not cleaned or cleaned in self.INVALID_ROLES:
             logger.info(f"Rejected invalid role: {role}")
             hint = lang_hint(self.userdata.language)
-            return f"(INTERNAL) That is not a professional role. Do NOT store it. Wait until the visitor mentions an actual job title. {hint}"
+            return f"That is not a professional role. Do NOT store it. Wait until the visitor mentions an actual job title. {hint}"
 
         logger.info(f"Detected visitor role: {role}")
         self.userdata.visitor_role = role.strip()
         hint = lang_hint(self.userdata.language)
-        return f"(INTERNAL) Continue the conversation naturally. {hint}"
+        return f"Continue the conversation naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # CONVERSATION SUMMARY
@@ -115,7 +115,7 @@ class EngageIQAssistant(BaseAgent):
         logger.info(f"Conversation summary: {summary}")
         self.userdata.conversation_summary = summary.strip()
         hint = lang_hint(self.userdata.language)
-        return f"(INTERNAL) Continue the conversation. {hint}"
+        return f"Continue the conversation. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # SESSION RESTART
@@ -168,11 +168,11 @@ class EngageIQAssistant(BaseAgent):
         hint = lang_hint(self.userdata.language)
         if not client:
             logger.warning(f"show_client: unknown client '{client_name}'")
-            return f"(INTERNAL) Continue discussing the client naturally. {hint}"
+            return f"Continue discussing the client naturally. {hint}"
 
         # Skip if already shown
         if key in self.userdata.clients_shown:
-            return f"(INTERNAL) Continue discussing the client naturally. {hint}"
+            return f"Continue discussing the client naturally. {hint}"
 
         self.userdata.clients_shown.append(key)
 
@@ -191,7 +191,7 @@ class EngageIQAssistant(BaseAgent):
         except Exception as e:
             logger.error(f"Failed to send client images: {e}")
 
-        return f"(INTERNAL) Continue discussing the client naturally. {hint}"
+        return f"Continue discussing the client naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # PRODUCT PRESENTATION
@@ -206,7 +206,7 @@ class EngageIQAssistant(BaseAgent):
         if self.userdata.engageiq_presented:
             hint = lang_hint(self.userdata.language)
             logger.info("present_engageiq called again but already presented — skipping")
-            return f"(INTERNAL) You already presented EngageIQ. Do NOT present again. Continue — ask about their challenge or check engagement. {hint}"
+            return f"You already presented EngageIQ. Do NOT present again. Continue — ask about their challenge or check engagement. {hint}"
 
         logger.info(f"Presenting EngageIQ to visitor with role: {self.userdata.visitor_role}")
 
@@ -229,9 +229,9 @@ class EngageIQAssistant(BaseAgent):
         hint = lang_hint(self.userdata.language)
         role = self.userdata.visitor_role
         if role:
-            return f"(INTERNAL) Present EngageIQ briefly — the images on screen show real deployments (CORE, DFKI). Connect to their {role} context. 1-2 sentences. {hint}"
+            return f"Present EngageIQ briefly — the images on screen show real deployments (CORE, DFKI). Connect to their {role} context. 1-2 sentences. {hint}"
         else:
-            return f"(INTERNAL) Present EngageIQ briefly — the images on screen show real deployments: CORE and DFKI. 1-2 sentences. {hint}"
+            return f"Present EngageIQ briefly — the images on screen show real deployments: CORE and DFKI. 1-2 sentences. {hint}"
 
     async def _send_product_to_frontend(self, product_key: str) -> None:
         """Send product info + client images to frontend via 'products' topic."""
@@ -281,7 +281,7 @@ class EngageIQAssistant(BaseAgent):
         self.userdata.intent_score += 1
         logger.info(f"Intent score after challenge: {self.userdata.intent_score}")
         hint = lang_hint(self.userdata.language)
-        return f"(INTERNAL) Continue the conversation naturally. {hint}"
+        return f"Continue the conversation naturally. {hint}"
 
     # ══════════════════════════════════════════════════════════════════════════
     # LEAD CAPTURE (inline — no handoff)
@@ -311,7 +311,7 @@ class EngageIQAssistant(BaseAgent):
         # Validate email
         if not is_valid_email_syntax(email):
             logger.info(f"Invalid email: {email}")
-            return f"(INTERNAL) That email doesn't seem right. Ask the visitor to double-check it. {lang_hint(self.userdata.language)}"
+            return f"That email doesn't seem right. Ask the visitor to double-check it. {lang_hint(self.userdata.language)}"
 
         # Store as PARTIAL contact info (not yet finalized)
         self.userdata.partial_name = name.strip()
@@ -345,7 +345,7 @@ class EngageIQAssistant(BaseAgent):
             logger.error(f"Partial lead webhook failed: {e}")
 
         hint = lang_hint(self.userdata.language)
-        return f"(INTERNAL) Now ask: 'May we use your contact information to follow up?' {hint}"
+        return f"Now ask: 'May we use your contact information to follow up?' {hint}"
 
     @function_tool
     async def confirm_consent(self, context: RunContext_T, consent: bool):
@@ -416,7 +416,7 @@ class EngageIQAssistant(BaseAgent):
                 logger.error(f"New conversation button failed: {e}")
 
             hint = lang_hint(self.userdata.language)
-            return f"(INTERNAL) Thank them warmly and say goodbye. Mention the team will follow up. {hint}"
+            return f"Thank them warmly and say goodbye. Mention the team will follow up. {hint}"
 
         else:
             # Send webhook FIRST while data is still available
@@ -449,5 +449,5 @@ class EngageIQAssistant(BaseAgent):
                 logger.error(f"New conversation button failed: {e}")
 
             hint = lang_hint(self.userdata.language)
-            return f"(INTERNAL) Respect their choice — say a warm goodbye, no pressure. {hint}"
+            return f"Respect their choice — say a warm goodbye, no pressure. {hint}"
 

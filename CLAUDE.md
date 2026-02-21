@@ -376,7 +376,7 @@ Imported by `prompt/main_agent.py` from `config.settings`.
 - **Self-intro examples reduced**: 6 → 3, with "vary naturally — don't copy verbatim" instruction
 - **Boundaries compressed**: Removed scripted redirect examples, replaced with principle ("acknowledge warmly, pivot to EngageIQ")
 - **Product Knowledge block compacted**: Removed duplicated `problem`/`value_proposition` fields (already in About EngageIQ), merged tagline into header
-- **Summaries are INTERNAL**: Tool returns include `(INTERNAL — do NOT speak it aloud)` to prevent agent from reading summaries to visitors
+- **Tool returns are directives only**: Tool returns are clean instructions (no meta-tags) — prompt rules forbid the agent from reading or repeating them to visitors
 - **No third-person references**: Agent never refers to visitor as "the visitor" — always "you"
 - **Visitor-adaptive presentation**: Agent adapts language to visitor context (student ≠ business owner), never says "businesses like yours" to non-business visitors
 - **Help-seeking = buying signal**: "I need your help" / "can you help me" triggers offer of team follow-up
